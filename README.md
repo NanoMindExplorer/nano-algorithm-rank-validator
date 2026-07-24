@@ -3,7 +3,7 @@
 Ekstensi Chrome untuk **memvalidasi dan merangking post X (Twitter)** sebelum atau sesudah dipublikasikan, berdasarkan struktur algoritma open-source **For You** dari [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm).
 
 **Versi:** 1.2.0 · **Lisensi:** MIT  
-**Wiki (pengembang & riset):** [GitHub Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki)
+**Wiki (pengembang & riset):** [folder `wiki/`](./wiki/Home.md) · [GitHub Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki) (setelah diinisialisasi)
 
 > Skor yang ditampilkan adalah **simulasi transparan** (proxy / sidecar hash) yang mengikuti *formula dan pipeline publik* algoritma X — **bukan** skor production Phoenix resmi di server X.
 
@@ -401,7 +401,7 @@ Harus muncul: `NARV Phoenix sidecar v1.2.0 on http://127.0.0.1:8787`.
 
 Jika sidecar mati, NARV **otomatis fallback** ke proxy in-page (badge “Sidecar fallback” bisa muncul).
 
-Dokumentasi API & mode jax: [Wiki · Sidecar](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Sidecar).
+Dokumentasi API & mode jax: [wiki/Sidecar.md](./wiki/Sidecar.md).
 
 ---
 
@@ -504,15 +504,17 @@ Di model proxy, link eksternal sering menekan distribusi OON. Itu soft signal di
 
 Dokumentasi pembangunan, arsitektur, API sidecar, dan riset algoritma dipindah ke **Wiki**:
 
-| Topik | Tautan |
-|--------|--------|
-| Beranda wiki | [Wiki Home](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki) |
-| Development / test / build / CI | [Development](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Development) |
-| Architecture | [Architecture](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Architecture) |
-| Integrations map | [Integrations](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Integrations) |
-| Sidecar API | [Sidecar](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Sidecar) |
-| Research x-algorithm | [Research](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Research) |
-| Contributing | [Contributing](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Contributing) |
+| Topik | Di repo | GitHub Wiki |
+|--------|---------|--------------|
+| Beranda | [wiki/Home.md](./wiki/Home.md) | [Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki) |
+| Development | [wiki/Development.md](./wiki/Development.md) | [Development](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Development) |
+| Architecture | [wiki/Architecture.md](./wiki/Architecture.md) | [Architecture](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Architecture) |
+| Integrations | [wiki/Integrations.md](./wiki/Integrations.md) | [Integrations](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Integrations) |
+| Sidecar API | [wiki/Sidecar.md](./wiki/Sidecar.md) | [Sidecar](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Sidecar) |
+| Research | [wiki/Research.md](./wiki/Research.md) | [Research](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Research) |
+| Contributing | [wiki/Contributing.md](./wiki/Contributing.md) | [Contributing](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Contributing) |
+
+> **Inisialisasi GitHub Wiki (sekali saja):** buka [Create the first page](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/_new) → simpan judul `Home` → workflow **Publish Wiki** akan menyalin isi folder `wiki/` (atau jalankan manual *workflow_dispatch*).
 
 ---
 
