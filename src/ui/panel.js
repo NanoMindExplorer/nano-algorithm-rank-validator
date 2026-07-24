@@ -309,6 +309,7 @@
 
   async function compareProfiles() {
     openPanel();
+    if (!(await refreshFollowGate({ force: false }))) return;
     bodyEl.innerHTML = `<div class="narv-empty">Comparing profiles…</div>`;
     let tweet =
       root.NARVParser.parseStatusPage() ||
@@ -367,6 +368,7 @@
 
   async function sampleHistoryUI() {
     openPanel();
+    if (!(await refreshFollowGate({ force: false }))) return;
     await loadSettings();
     const samples = root.NARVSampler
       ? await root.NARVSampler.loadSamples()
@@ -595,6 +597,7 @@
 
   async function scoreDraft() {
     openPanel();
+    if (!(await refreshFollowGate({ force: false }))) return;
     const text =
       document.querySelector('[data-testid="tweetTextarea_0"]')?.innerText ||
       document.querySelector('[role="textbox"][data-testid^="tweetTextarea"]')
