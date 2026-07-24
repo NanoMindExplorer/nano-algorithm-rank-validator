@@ -17,7 +17,7 @@ async function send(type) {
   try {
     await chrome.tabs.sendMessage(tab.id, { type });
     status.textContent = "Sent ✓";
-  } catch (e) {
+  } catch {
     status.textContent = "Reload x.com page";
   }
 }
@@ -39,4 +39,11 @@ activeTab().then((tab) => {
   const status = document.getElementById("status");
   if (tab && isX(tab.url || "")) status.textContent = "Connected";
   else status.textContent = "Not on X";
+});
+
+chrome.storage.sync.get({ profileId: "balanced", useSidecar: false }, (s) => {
+  const line = document.getElementById("profile-line");
+  if (line) {
+    line.textContent = `Profile: ${s.profileId}${s.useSidecar ? " · sidecar on" : ""}`;
+  }
 });

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NARV Settings — Scoring Weights</title>
+    <title>NARV Settings — Profiles, Affinity, Sidecar</title>
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
@@ -13,15 +13,20 @@
         <div>
           <h1>Nano Algorithm Rank Validator</h1>
           <p>
-            Weights mirror <code>home-mixer/scorers/weighted_scorer.rs</code> /
-            <code>ranking_scorer.rs</code>. Production magnitudes are private;
-            defaults are research-calibrated.
+            v1.1 — weight profiles, affinity calibration, CSV export, optional Phoenix sidecar.
+            Structure mirrors <code>xai-org/x-algorithm</code>.
           </p>
         </div>
       </header>
 
       <section>
-        <h2>Viewer context defaults</h2>
+        <h2>Weight profile</h2>
+        <div class="grid2" id="profile-grid"></div>
+        <p class="hint" id="profile-hint"></p>
+      </section>
+
+      <section>
+        <h2>Viewer context</h2>
         <div class="grid2">
           <label class="field">
             <span>Assume in-network</span>
@@ -35,6 +40,51 @@
             <span>Muted keywords (comma-separated)</span>
             <input type="text" id="mutedKeywords" placeholder="crypto spam, giveaway" />
           </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Affinity calibration (engagement history)</h2>
+        <p class="hint">
+          Import JSON from a Phoenix-style sequence or simple NARV engagements list.
+          Calibrates <code>historyAffinity</code> and can suggest a profile.
+        </p>
+        <div class="grid2">
+          <label class="field full">
+            <span>History JSON file</span>
+            <input type="file" id="historyFile" accept="application/json,.json" />
+          </label>
+          <label class="field full">
+            <span>Or paste JSON</span>
+            <textarea id="historyPaste" rows="5" placeholder='{"engagements":[{"liked":true,"text":"...","replied":true}]}'></textarea>
+          </label>
+        </div>
+        <div class="actions" style="margin-top: 10px">
+          <button id="calibrate" type="button">Calibrate from history</button>
+          <button id="apply-suggested-profile" type="button" class="ghost">Apply suggested profile</button>
+        </div>
+        <pre id="calibration-out" class="out">No calibration yet.</pre>
+      </section>
+
+      <section>
+        <h2>Phoenix sidecar (optional)</h2>
+        <p class="hint">
+          Run <code>sidecar/server.py</code> locally to supply multi-action scores.
+          Extension falls back to the built-in proxy if the sidecar is offline.
+        </p>
+        <div class="grid2">
+          <label class="field">
+            <span>Enable sidecar</span>
+            <input type="checkbox" id="useSidecar" />
+          </label>
+          <label class="field">
+            <span>Sidecar base URL</span>
+            <input type="text" id="sidecarUrl" value="http://127.0.0.1:8787" />
+          </label>
+        </div>
+        <div class="actions" style="margin-top: 10px">
+          <button id="ping-sidecar" type="button">Test connection</button>
+          <span id="sidecar-status" class="hint"></span>
         </div>
       </section>
 
@@ -60,13 +110,19 @@
       </div>
 
       <footer>
-        Reference:
+        <a href="https://github.com/NanoMindExplorer/nano-algorithm-rank-validator" target="_blank" rel="noreferrer"
+          >Repo ↗</a
+        >
+        ·
         <a href="https://github.com/xai-org/x-algorithm" target="_blank" rel="noreferrer"
-          >github.com/xai-org/x-algorithm</a
+          >x-algorithm ↗</a
         >
       </footer>
     </div>
     <script src="../lib/weights.js"></script>
+    <script src="../lib/profiles.js"></script>
+    <script src="../lib/affinity.js"></script>
+    <script src="../lib/sidecar.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

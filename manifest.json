@@ -2,10 +2,10 @@
   "manifest_version": 3,
   "name": "Nano Algorithm Rank Validator",
   "short_name": "NARV",
-  "version": "1.0.0",
-  "description": "Validate & rank tweets against the open-source X For You algorithm (xai-org/x-algorithm). Full Phoenix WeightedScorer, filters, author diversity, and OON pipeline.",
-  "author": "Nano",
-  "homepage_url": "https://github.com/xai-org/x-algorithm",
+  "version": "1.1.0",
+  "description": "Validate & rank X posts with open-source For You algorithm structure: profiles, affinity calibration, CSV export, optional Phoenix sidecar.",
+  "author": "NanoMindExplorer",
+  "homepage_url": "https://github.com/NanoMindExplorer/nano-algorithm-rank-validator",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -39,11 +39,15 @@
       "js": [
         "src/lib/snowflake.js",
         "src/lib/weights.js",
+        "src/lib/profiles.js",
         "src/lib/content-features.js",
         "src/lib/phoenix-proxy.js",
         "src/lib/filters.js",
         "src/lib/weighted-scorer.js",
         "src/lib/ranking-scorer.js",
+        "src/lib/affinity.js",
+        "src/lib/export.js",
+        "src/lib/sidecar.js",
         "src/lib/pipeline.js",
         "src/lib/tweet-parser.js",
         "src/ui/panel.js",
@@ -64,7 +68,9 @@
     "https://x.com/*",
     "https://twitter.com/*",
     "https://mobile.x.com/*",
-    "https://mobile.twitter.com/*"
+    "https://mobile.twitter.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
   ],
   "web_accessible_resources": [
     {

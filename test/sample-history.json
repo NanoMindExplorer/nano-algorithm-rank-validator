@@ -1,0 +1,42 @@
+{
+  "engagements": [
+    {
+      "text": "What tools do you use for local LLM inference?",
+      "liked": true,
+      "replied": true,
+      "author": "ml_researcher",
+      "has_media": false
+    },
+    {
+      "text": "Shipping a video walkthrough of our ranking pipeline",
+      "liked": true,
+      "reposted": true,
+      "author": "builder",
+      "has_video": true
+    },
+    {
+      "text": "Unpopular opinion: open algorithms beat black boxes",
+      "liked": true,
+      "quoted": true,
+      "author": "policy_nerd"
+    },
+    {
+      "text": "FREE crypto giveaway guaranteed returns click here",
+      "not_interested": true,
+      "author": "spam_bot"
+    },
+    {
+      "text": "Thread: how Phoenix multi-action scoring works",
+      "liked": true,
+      "dwelled": true,
+      "replied": true,
+      "author": "xalgo"
+    },
+    {
+      "history_style": true,
+      "author_id": "42",
+      "actions": { "1": 1, "4": 1, "11": 1 },
+      "text": "Phoenix action-index style engagement"
+    }
+  ]
+}

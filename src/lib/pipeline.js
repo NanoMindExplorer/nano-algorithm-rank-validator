@@ -63,12 +63,43 @@
   ];
 
   /**
+   * Resolve weights/params from profile + overrides.
+   */
+  function resolveConfig(options = {}) {
+    const defaults = root.NARVWeights.cloneDefaults();
+    let weights = { ...defaults.weights, ...(options.weights || {}) };
+    let params = { ...defaults.params, ...(options.params || {}) };
+    let profileId = options.profileId || "balanced";
+    let profileName = options.profileName || "Balanced (default)";
+
+    if (root.NARVProfiles && options.profileId) {
+      const resolved = root.NARVProfiles.resolve(options.profileId, {
+        weights: options.weights,
+        params: options.params,
+      });
+      weights = resolved.weights;
+      params = resolved.params;
+      profileId = resolved.profileId;
+      profileName = resolved.profileName;
+    } else if (root.NARVProfiles && !options.weights) {
+      const resolved = root.NARVProfiles.resolve(profileId, {
+        params: options.params,
+      });
+      weights = resolved.weights;
+      params = { ...resolved.params, ...(options.params || {}) };
+      profileName = resolved.profileName;
+    }
+
+    return { weights, params, profileId, profileName };
+  }
+
+  /**
    * Validate a single tweet against the full algorithm pipeline.
+   * options.phoenixScores — optional precomputed heads (sidecar)
+   * options.scorerMode — "proxy" | "sidecar"
    */
   function validateTweet(tweet, options = {}) {
-    const defaults = root.NARVWeights.cloneDefaults();
-    const weights = { ...defaults.weights, ...(options.weights || {}) };
-    const params = { ...defaults.params, ...(options.params || {}) };
+    const { weights, params, profileId, profileName } = resolveConfig(options);
     const context = {
       inNetwork: options.inNetwork != null ? options.inNetwork : true,
       viewerId: options.viewerId || null,
@@ -109,18 +140,34 @@
       filterReport,
     });
 
-    // Stage: Phoenix proxy
-    const phoenixScores = root.NARVPhoenix.predictPhoenixScores(
-      features,
-      params,
-      context
-    );
-    stages.push({
-      id: "phoenix_scorer",
-      status: "proxy",
-      summary: `Quality P≈${(phoenixScores._meta.qualityProb * 100).toFixed(1)}% (proxy)`,
-      phoenixScores,
-    });
+    // Stage: Phoenix heads (proxy or sidecar-provided)
+    let phoenixScores;
+    let scorerMode = options.scorerMode || "proxy";
+    if (options.phoenixScores) {
+      phoenixScores = root.NARVSidecar
+        ? root.NARVSidecar.coercePhoenixScores(options.phoenixScores) ||
+          options.phoenixScores
+        : options.phoenixScores;
+      scorerMode = options.scorerMode || "sidecar";
+      stages.push({
+        id: "phoenix_scorer",
+        status: "sidecar",
+        summary: "Multi-action scores from Phoenix sidecar",
+        phoenixScores,
+      });
+    } else {
+      phoenixScores = root.NARVPhoenix.predictPhoenixScores(
+        features,
+        params,
+        context
+      );
+      stages.push({
+        id: "phoenix_scorer",
+        status: "proxy",
+        summary: `Quality P≈${((phoenixScores._meta?.qualityProb || 0) * 100).toFixed(1)}% (proxy)`,
+        phoenixScores,
+      });
+    }
 
     // Stage: Weighted scorer
     const candidate = {
@@ -183,10 +230,16 @@
       .slice(0, 4);
 
     const elapsed = performance.now() - t0;
+    const isProxy = scorerMode !== "sidecar";
 
     return {
-      version: "1.0.0",
-      algorithm: "xai-org/x-algorithm (client proxy)",
+      version: "1.1.0",
+      algorithm: isProxy
+        ? "xai-org/x-algorithm (client proxy)"
+        : "xai-org/x-algorithm (sidecar + WeightedScorer)",
+      scorerMode,
+      profileId,
+      profileName,
       timestamp: new Date().toISOString(),
       elapsedMs: Math.round(elapsed * 100) / 100,
       tweet: {
@@ -213,9 +266,48 @@
       finalScore: ranking.finalScore,
       displayScore: Math.round(Math.min(100, ranking.finalScore * 100)),
       pipelineStages: PIPELINE_STAGES,
-      disclaimer:
-        "Phoenix P(action) values are client-side proxies. Production uses a Grok-based transformer with user engagement history. Exact production weight magnitudes are not public.",
+      disclaimer: isProxy
+        ? "Phoenix P(action) values are client-side proxies. Production uses a Grok-based transformer with user engagement history. Exact production weight magnitudes are not public."
+        : "Phoenix heads came from your local sidecar; WeightedScorer / diversity / OON still run in-extension using configured weights.",
     };
+  }
+
+  /**
+   * Async path: try sidecar when enabled, else local proxy.
+   */
+  async function validateTweetAsync(tweet, options = {}) {
+    if (
+      options.useSidecar &&
+      root.NARVSidecar &&
+      options.sidecarUrl
+    ) {
+      try {
+        const remote = await root.NARVSidecar.scoreTweet(
+          options.sidecarUrl,
+          tweet,
+          options
+        );
+        return validateTweet(tweet, {
+          ...options,
+          phoenixScores: remote.phoenixScores,
+          scorerMode: "sidecar",
+        });
+      } catch (e) {
+        const report = validateTweet(tweet, {
+          ...options,
+          scorerMode: "proxy",
+        });
+        report.sidecarError = e.message || String(e);
+        report.stages = report.stages || [];
+        report.stages.unshift({
+          id: "sidecar_fallback",
+          status: "fail",
+          summary: `Sidecar failed — fell back to proxy: ${report.sidecarError}`,
+        });
+        return report;
+      }
+    }
+    return validateTweet(tweet, options);
   }
 
   /**
@@ -251,10 +343,43 @@
     return validateTweet(tweet, { ...options, inNetwork: true });
   }
 
+  async function validateDraftAsync(text, meta = {}, options = {}) {
+    const tweet = {
+      tweetId: meta.tweetId || null,
+      authorId: meta.authorId || "draft",
+      authorHandle: meta.authorHandle || "you",
+      text: text || "",
+      hasMedia: !!meta.hasMedia,
+      hasImage: !!meta.hasImage,
+      hasVideo: !!meta.hasVideo,
+      hasGif: !!meta.hasGif,
+      hasPoll: !!meta.hasPoll,
+      hasExternalLink: /https?:\/\//i.test(text || ""),
+      isReply: !!meta.isReply,
+      isQuote: !!meta.isQuote,
+      isThread: !!meta.isThread,
+      threadLength: meta.threadLength || 1,
+      authorFollowers: meta.authorFollowers || 0,
+      authorVerified: !!meta.authorVerified,
+      authorPremium: !!meta.authorPremium,
+      likeCount: 0,
+      replyCount: 0,
+      repostCount: 0,
+      quoteCount: 0,
+      viewCount: 0,
+      videoDurationMs: meta.videoDurationMs || null,
+      ageHours: 0.01,
+    };
+    return validateTweetAsync(tweet, { ...options, inNetwork: true });
+  }
+
   const NARVPipeline = {
     PIPELINE_STAGES,
+    resolveConfig,
     validateTweet,
+    validateTweetAsync,
     validateDraft,
+    validateDraftAsync,
   };
 
   root.NARVPipeline = NARVPipeline;

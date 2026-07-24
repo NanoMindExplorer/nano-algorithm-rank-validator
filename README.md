@@ -2,7 +2,7 @@
 
 **Chrome extension** that validates and ranks posts on [X](https://x.com) against the open-source **For You** recommendation pipeline from [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm).
 
-> Name: **nano algorithm rank validator** · Short: **NARV** · Version **1.0.0**
+> Name: **nano algorithm rank validator** · Short: **NARV** · Version **1.1.0**
 
 ![Manifest V3](https://img.shields.io/badge/MV3-ready-1d9bf0)
 ![Algorithm](https://img.shields.io/badge/x--algorithm-Phoenix%20WeightedScorer-a855f7)
@@ -128,12 +128,36 @@ This project does **not** redistribute the Phoenix model weights or private para
 
 ---
 
+## v1.1 integrations
+
+| Feature | Where |
+|---------|--------|
+| **Weight profiles** (balanced, conversation, media, news, viral, OSS demo) | Options → Weight profile · `src/lib/profiles.js` |
+| **Affinity calibration** from engagement history JSON | Options → Affinity · `src/lib/affinity.js` · sample: `test/sample-history.json` |
+| **CSV / JSON export** of timeline scans & reports | Side panel after scan · `src/lib/export.js` |
+| **Phoenix sidecar** (local HTTP scores + auto fallback) | `sidecar/server.py` · Options toggle · `src/lib/sidecar.js` |
+
+### Sidecar quick start
+
+```bash
+python3 sidecar/server.py
+# http://127.0.0.1:8787
+```
+
+Enable in Options → **Phoenix sidecar** → Test connection → Save.  
+If the sidecar is down, scoring falls back to the in-extension proxy automatically.
+
+### Sample history import
+
+Use `test/sample-history.json` in Options → Calibrate from history, then **Apply suggested profile**.
+
+---
+
 ## Roadmap ideas
 
-- [ ] Optional remote Phoenix inference sidecar (user-hosted `run_pipeline.py`)  
-- [ ] Import personal engagement history for affinity calibration  
-- [ ] A/B weight profiles (conversation / media / news)  
-- [ ] Export CSV of timeline scan scores  
+- [ ] Wire sidecar `NARV_PHOENIX_MODE=jax` to real Phoenix checkpoints  
+- [ ] Auto-sample engagement from your own likes timeline (opt-in)  
+- [ ] Graphite / CI packaging for Chrome Web Store zip  
 
 ---
 

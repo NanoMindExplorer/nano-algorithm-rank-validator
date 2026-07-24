@@ -18,11 +18,15 @@ vm.createContext(sandbox);
 const files = [
   "snowflake.js",
   "weights.js",
+  "profiles.js",
   "content-features.js",
   "phoenix-proxy.js",
   "filters.js",
   "weighted-scorer.js",
   "ranking-scorer.js",
+  "affinity.js",
+  "export.js",
+  "sidecar.js",
   "pipeline.js",
 ];
 
@@ -35,6 +39,9 @@ const {
   NARVPipeline,
   NARVRanking,
   NARVSnowflake,
+  NARVProfiles,
+  NARVAffinity,
+  NARVExport,
 } = sandbox;
 
 let failed = 0;
@@ -66,11 +73,16 @@ const tweet = {
   ageHours: 1.2,
 };
 
-const report = NARVPipeline.validateTweet(tweet, { inNetwork: true });
+const report = NARVPipeline.validateTweet(tweet, {
+  inNetwork: true,
+  profileId: "conversation",
+});
 assert("finalScore", report.finalScore > 0);
 assert("grade", !!report.grade.letter);
 assert("signals", report.weighted.rankedContributions.length >= 10);
+assert("profile", report.profileId === "conversation");
 assert("diversity", NARVRanking.diversityMultiplier(0.6, 0.25, 1) < 1);
+assert("profiles listed", NARVProfiles.listProfiles().length >= 4);
 
 const spam = NARVPipeline.validateDraft("FREE MONEY crypto giveaway click here now!!!", {});
 assert(
@@ -78,6 +90,19 @@ assert(
   spam.finalScore < report.finalScore || spam.insights.risks.length > 0
 );
 
-console.log("\nScore sample:", report.finalScore.toFixed(4), report.grade.letter);
+const history = JSON.parse(
+  fs.readFileSync(path.join(root, "test", "sample-history.json"), "utf8")
+);
+const cal = NARVAffinity.calibrate(history);
+assert("affinity calibrated", cal.sampleSize > 0 && cal.historyAffinity > 0);
+assert("suggest profile", typeof NARVAffinity.suggestProfile(cal) === "string");
+
+const csv = NARVExport.scanToCsv([
+  { rank: 1, report, tweet, finalScore: report.finalScore, grade: report.grade },
+]);
+assert("csv export", csv.includes("final_score") && csv.includes("dev"));
+
+console.log("\nScore sample:", report.finalScore.toFixed(4), report.grade.letter, report.profileId);
+console.log("Affinity:", cal.historyAffinity.toFixed(3), "→", NARVAffinity.suggestProfile(cal));
 console.log(failed ? `\n${failed} failed` : "\nAll passed");
 process.exit(failed ? 1 : 0);

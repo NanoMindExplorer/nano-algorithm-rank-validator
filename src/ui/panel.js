@@ -8,6 +8,7 @@
   let panelEl = null;
   let bodyEl = null;
   let lastReport = null;
+  let lastScan = null;
   let settings = null;
 
   function esc(s) {
@@ -24,28 +25,68 @@
       const stored = await chrome.storage.sync.get({
         weights: defaults.weights,
         params: defaults.params,
+        profileId: "balanced",
         inNetworkDefault: true,
         historyAffinity: 0.55,
         mutedKeywords: "",
+        useSidecar: false,
+        sidecarUrl: "http://127.0.0.1:8787",
+        affinityCalibration: null,
       });
+      const profileId = stored.profileId || "balanced";
+      let weights = { ...defaults.weights, ...(stored.weights || {}) };
+      let params = { ...defaults.params, ...(stored.params || {}) };
+      let profileName = "Balanced (default)";
+      if (root.NARVProfiles) {
+        const resolved = root.NARVProfiles.resolve(profileId, {
+          // Only apply stored weight overrides if user customized beyond profile
+          weights: stored.weightsCustom ? stored.weights : undefined,
+          params: stored.params,
+        });
+        // If user has custom weights saved with profile, merge profile then custom
+        if (stored.weights && Object.keys(stored.weights).length) {
+          // Prefer explicit stored weights (options page saves full map)
+          weights = { ...defaults.weights, ...resolved.weights, ...stored.weights };
+        } else {
+          weights = resolved.weights;
+        }
+        params = { ...resolved.params, ...(stored.params || {}) };
+        profileName = resolved.profileName;
+      }
+      const cal = stored.affinityCalibration;
+      const historyAffinity =
+        cal && cal.historyAffinity != null
+          ? cal.historyAffinity
+          : stored.historyAffinity != null
+            ? stored.historyAffinity
+            : 0.55;
       settings = {
-        weights: { ...defaults.weights, ...(stored.weights || {}) },
-        params: { ...defaults.params, ...(stored.params || {}) },
+        weights,
+        params,
+        profileId,
+        profileName,
         inNetworkDefault: stored.inNetworkDefault !== false,
-        historyAffinity:
-          stored.historyAffinity != null ? stored.historyAffinity : 0.55,
+        historyAffinity,
         mutedKeywords: String(stored.mutedKeywords || "")
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
+        useSidecar: !!stored.useSidecar,
+        sidecarUrl: stored.sidecarUrl || "http://127.0.0.1:8787",
+        affinityCalibration: cal,
       };
     } catch {
       settings = {
         weights: defaults.weights,
         params: defaults.params,
+        profileId: "balanced",
+        profileName: "Balanced (default)",
         inNetworkDefault: true,
         historyAffinity: 0.55,
         mutedKeywords: [],
+        useSidecar: false,
+        sidecarUrl: "http://127.0.0.1:8787",
+        affinityCalibration: null,
       };
     }
     return settings;
@@ -127,7 +168,13 @@
     const json = JSON.stringify(lastReport, null, 2);
     navigator.clipboard?.writeText(json).then(
       () => flash("Report copied"),
-      () => flash("Copy failed")
+      () => {
+        // Fallback download
+        if (root.NARVExport) {
+          root.NARVExport.downloadReportJson("narv-report.json", lastReport);
+          flash("Downloaded report");
+        } else flash("Copy failed");
+      }
     );
   }
 
@@ -145,10 +192,21 @@
     return {
       weights: settings.weights,
       params: settings.params,
+      profileId: settings.profileId,
+      profileName: settings.profileName,
       inNetwork: settings.inNetworkDefault,
       historyAffinity: settings.historyAffinity,
       mutedKeywords: settings.mutedKeywords,
+      useSidecar: settings.useSidecar,
+      sidecarUrl: settings.sidecarUrl,
     };
+  }
+
+  async function scoreTweet(tweet, opts) {
+    if (root.NARVPipeline.validateTweetAsync) {
+      return root.NARVPipeline.validateTweetAsync(tweet, opts);
+    }
+    return root.NARVPipeline.validateTweet(tweet, opts);
   }
 
   async function validateActive() {
@@ -166,16 +224,18 @@
       return;
     }
 
+    bodyEl.innerHTML = `<div class="narv-empty">Scoring…</div>`;
     const opts = await getOptions();
-    const report = root.NARVPipeline.validateTweet(tweet, opts);
+    const report = await scoreTweet(tweet, opts);
     lastReport = report;
     renderReport(report, "report");
   }
 
   async function validateTweetObject(tweet) {
     openPanel();
+    bodyEl.innerHTML = `<div class="narv-empty">Scoring…</div>`;
     const opts = await getOptions();
-    const report = root.NARVPipeline.validateTweet(tweet, opts);
+    const report = await scoreTweet(tweet, opts);
     lastReport = report;
     renderReport(report, "report");
     return report;
@@ -190,22 +250,53 @@
       return;
     }
 
-    const ranked = items.map(({ tweet }, i) => {
-      const report = root.NARVPipeline.validateTweet(tweet, opts);
-      return {
+    bodyEl.innerHTML = `<div class="narv-empty">Scanning ${items.length} posts…</div>`;
+
+    const ranked = [];
+    for (let i = 0; i < items.length; i++) {
+      const { tweet } = items[i];
+      const report = await scoreTweet(tweet, opts);
+      ranked.push({
         index: i,
         tweet,
         report,
         finalScore: report.finalScore,
         grade: report.grade,
-      };
-    });
+      });
+    }
     ranked.sort((a, b) => b.finalScore - a.finalScore);
+    ranked.forEach((r, i) => {
+      r.rank = i + 1;
+    });
+    lastScan = ranked;
 
+    // Persist last scan summary (local only)
+    try {
+      await chrome.storage.local.set({
+        lastScanAt: new Date().toISOString(),
+        lastScanCount: ranked.length,
+        lastScanPreview: ranked.slice(0, 20).map((r) => ({
+          rank: r.rank,
+          score: r.finalScore,
+          grade: r.grade?.letter,
+          author: r.tweet.authorHandle,
+          id: r.tweet.tweetId,
+          text: (r.tweet.text || "").slice(0, 120),
+        })),
+      });
+    } catch {
+      /* ignore */
+    }
+
+    const mode = opts.useSidecar ? "sidecar+proxy fallback" : "proxy";
     bodyEl.innerHTML = `
       <div class="narv-card">
-        <div class="narv-card-h">Timeline scan <span>${ranked.length} posts · proxy rank</span></div>
+        <div class="narv-card-h">Timeline scan <span>${ranked.length} posts · ${esc(mode)} · ${esc(opts.profileId || "balanced")}</span></div>
         <div class="narv-card-b">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="narv-btn narv-btn-secondary" id="narv-export-csv" type="button">Export CSV</button>
+            <button class="narv-btn narv-btn-secondary" id="narv-export-json" type="button">Export JSON</button>
+          </div>
           ${ranked
             .map(
               (r, i) => `
@@ -220,8 +311,24 @@
             .join("")}
         </div>
       </div>
-      <p class="narv-disclaimer">Click a row for full report. Ranking uses client proxy Phoenix scores + WeightedScorer formula — not production inference.</p>
+      <p class="narv-disclaimer">Click a row for full report. Export uses NARVExport (CSV/JSON).</p>
     `;
+
+    bodyEl.querySelector("#narv-export-csv")?.addEventListener("click", () => {
+      if (!root.NARVExport || !lastScan) return;
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      root.NARVExport.downloadCsv(`narv-scan-${ts}.csv`, lastScan);
+      flash("CSV exported");
+    });
+    bodyEl.querySelector("#narv-export-json")?.addEventListener("click", () => {
+      if (!root.NARVExport || !lastScan) return;
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      root.NARVExport.downloadJson(`narv-scan-${ts}.json`, lastScan, {
+        profileId: opts.profileId,
+        useSidecar: opts.useSidecar,
+      });
+      flash("JSON exported");
+    });
 
     bodyEl.querySelectorAll("[data-scan-idx]").forEach((row) => {
       row.addEventListener("click", () => {
@@ -279,21 +386,40 @@
       const media = bodyEl.querySelector("#narv-draft-media").value;
       const format = bodyEl.querySelector("#narv-draft-format").value;
       const opts = await getOptions();
-      const report = root.NARVPipeline.validateDraft(
-        draftText,
-        {
-          hasImage: media === "image",
-          hasVideo: media === "video",
-          hasMedia: media === "image" || media === "video",
-          hasPoll: media === "poll",
-          isThread: format === "thread",
-          isReply: format === "reply",
-          isQuote: format === "quote",
-          videoDurationMs: media === "video" ? 12000 : null,
-          threadLength: format === "thread" ? 5 : 1,
-        },
-        opts
-      );
+      bodyEl.innerHTML = `<div class="narv-empty">Scoring draft…</div>`;
+      const report = await (root.NARVPipeline.validateDraftAsync
+        ? root.NARVPipeline.validateDraftAsync(
+            draftText,
+            {
+              hasImage: media === "image",
+              hasVideo: media === "video",
+              hasMedia: media === "image" || media === "video",
+              hasPoll: media === "poll",
+              isThread: format === "thread",
+              isReply: format === "reply",
+              isQuote: format === "quote",
+              videoDurationMs: media === "video" ? 12000 : null,
+              threadLength: format === "thread" ? 5 : 1,
+            },
+            opts
+          )
+        : Promise.resolve(
+            root.NARVPipeline.validateDraft(
+              draftText,
+              {
+                hasImage: media === "image",
+                hasVideo: media === "video",
+                hasMedia: media === "image" || media === "video",
+                hasPoll: media === "poll",
+                isThread: format === "thread",
+                isReply: format === "reply",
+                isQuote: format === "quote",
+                videoDurationMs: media === "video" ? 12000 : null,
+                threadLength: format === "thread" ? 5 : 1,
+              },
+              opts
+            )
+          ));
       lastReport = report;
       document
         .querySelectorAll("#narv-root .narv-tab")
@@ -439,12 +565,14 @@
           <h2>${esc(g.label)}</h2>
           <p>Final score <strong>${report.finalScore.toFixed(4)}</strong> · ${report.elapsedMs}ms</p>
           <div class="narv-badge-row">
-            <span class="narv-badge proxy">Phoenix proxy</span>
+            <span class="narv-badge ${report.scorerMode === "sidecar" ? "ok" : "proxy"}">${report.scorerMode === "sidecar" ? "Sidecar" : "Phoenix proxy"}</span>
+            <span class="narv-badge">${esc(report.profileId || "balanced")}</span>
             <span class="narv-badge ${report.filterReport.passed ? "ok" : "fail"}">${report.filterReport.passed ? "Filters OK" : "Filter risk"}</span>
             <span class="narv-badge">${report.context.inNetwork ? "In-network" : "OON"}</span>
             ${f.hasVideo ? '<span class="narv-badge ok">Video</span>' : ""}
             ${f.hasImage ? '<span class="narv-badge">Image</span>' : ""}
             ${f.hasExternalLink ? '<span class="narv-badge warn">Ext link</span>' : ""}
+            ${report.sidecarError ? '<span class="narv-badge warn">Sidecar fallback</span>' : ""}
           </div>
         </div>
       </div>
@@ -509,8 +637,22 @@
         </div>
       </div>
 
+      <div class="narv-card">
+        <div class="narv-card-h">Export</div>
+        <div class="narv-card-b" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="narv-btn narv-btn-secondary" id="narv-export-report" type="button">Download report JSON</button>
+        </div>
+      </div>
+
       <p class="narv-disclaimer">${esc(report.disclaimer)} Source: github.com/xai-org/x-algorithm</p>
     `;
+
+    bodyEl.querySelector("#narv-export-report")?.addEventListener("click", () => {
+      if (!root.NARVExport || !lastReport) return;
+      const id = lastReport.tweet?.tweetId || "draft";
+      root.NARVExport.downloadReportJson(`narv-report-${id}.json`, lastReport);
+      flash("Report exported");
+    });
   }
 
   function injectTweetButtons() {

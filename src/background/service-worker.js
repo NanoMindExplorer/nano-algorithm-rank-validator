@@ -1,8 +1,9 @@
 /**
- * Background service worker — settings defaults + action click helpers.
+ * Background service worker — defaults for v1.1 integrations.
  */
 
 const DEFAULTS = {
+  profileId: "balanced",
   weights: {
     favorite: 1.0,
     reply: 13.5,
@@ -44,17 +45,36 @@ const DEFAULTS = {
   inNetworkDefault: true,
   historyAffinity: 0.55,
   mutedKeywords: "",
+  useSidecar: false,
+  sidecarUrl: "http://127.0.0.1:8787",
+  affinityCalibration: null,
 };
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === "install") {
     await chrome.storage.sync.set(DEFAULTS);
+  } else if (details.reason === "update") {
+    // Fill any missing v1.1 keys without wiping user weights
+    const current = await chrome.storage.sync.get(null);
+    const patch = {};
+    for (const [k, v] of Object.entries(DEFAULTS)) {
+      if (current[k] === undefined) patch[k] = v;
+    }
+    if (Object.keys(patch).length) await chrome.storage.sync.set(patch);
   }
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "NARV_GET_DEFAULTS") {
     sendResponse({ defaults: DEFAULTS });
+    return true;
+  }
+  if (msg?.type === "NARV_SIDECAR_HEALTH") {
+    const url = (msg.url || DEFAULTS.sidecarUrl).replace(/\/+$/, "");
+    fetch(`${url}/health`)
+      .then((r) => r.json())
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;
   }
 });
