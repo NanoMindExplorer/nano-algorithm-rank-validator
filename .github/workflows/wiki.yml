@@ -1,0 +1,27 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "wiki/**"
+      - ".github/workflows/wiki.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish wiki/ to GitHub Wiki
+        uses: Andrew-Chen-Wang/github-wiki-action@v4
+        continue-on-error: true
+        with:
+          path: wiki/
+          # If the wiki has never been initialized in the GitHub UI,
+          # open https://github.com/OWNER/REPO/wiki once and create Home,
+          # then re-run this workflow.
