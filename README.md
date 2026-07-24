@@ -19,7 +19,6 @@ Tools **terkunci** sampai salah satu kondisi ini terpenuhi:
 | Pengguna | Syarat |
 |----------|--------|
 | **Semua orang** | Login di x.com **dan** **follow** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) |
-| **Pemilik** `@Deadmouse_jpeg` | Cukup **login** sebagai akun itu — **otomatis unlock** (X tidak mengizinkan follow diri sendiri) |
 
 Jika terkunci, panel/popup menampilkan **Follow required** + tombol ke profil + **Saya sudah follow — cek ulang**.
 
