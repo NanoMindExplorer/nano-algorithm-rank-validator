@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nano Algorithm Rank Validator</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">NΔ</div>
+      <div>
+        <h1>Nano Algorithm Rank Validator</h1>
+        <p class="sub">xai-org/x-algorithm · For You</p>
+      </div>
+    </header>
+
+    <section class="actions">
+      <button id="btn-validate" class="primary">Validate active tweet</button>
+      <button id="btn-scan">Scan visible timeline</button>
+      <button id="btn-open">Open side panel</button>
+      <button id="btn-options" class="ghost">Scoring weights &amp; settings</button>
+    </section>
+
+    <section class="info">
+      <h2>Pipeline covered</h2>
+      <ul>
+        <li>Phoenix multi-action P(engagement) proxy</li>
+        <li>WeightedScorer Σ wᵢ·Pᵢ (19+ signals)</li>
+        <li>Author diversity decay + OON factor</li>
+        <li>Pre/post filters (Age, VF, social graph…)</li>
+      </ul>
+      <p class="note">
+        Shortcut on x.com: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>
+      </p>
+      <p class="note dim">
+        Production Phoenix transformer &amp; private weight magnitudes are not
+        runnable in-browser. Structure matches open source.
+      </p>
+    </section>
+
+    <footer>
+      <a href="https://github.com/xai-org/x-algorithm" target="_blank" rel="noreferrer"
+        >x-algorithm ↗</a
+      >
+      <span id="status"></span>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

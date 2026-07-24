@@ -1,0 +1,81 @@
+{
+  "manifest_version": 3,
+  "name": "Nano Algorithm Rank Validator",
+  "short_name": "NARV",
+  "version": "1.0.0",
+  "description": "Validate & rank tweets against the open-source X For You algorithm (xai-org/x-algorithm). Full Phoenix WeightedScorer, filters, author diversity, and OON pipeline.",
+  "author": "Nano",
+  "homepage_url": "https://github.com/xai-org/x-algorithm",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Nano Algorithm Rank Validator",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*",
+        "https://mobile.x.com/*",
+        "https://mobile.twitter.com/*"
+      ],
+      "js": [
+        "src/lib/snowflake.js",
+        "src/lib/weights.js",
+        "src/lib/content-features.js",
+        "src/lib/phoenix-proxy.js",
+        "src/lib/filters.js",
+        "src/lib/weighted-scorer.js",
+        "src/lib/ranking-scorer.js",
+        "src/lib/pipeline.js",
+        "src/lib/tweet-parser.js",
+        "src/ui/panel.js",
+        "src/content/content.js"
+      ],
+      "css": [
+        "src/ui/panel.css",
+        "src/content/content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://mobile.x.com/*",
+    "https://mobile.twitter.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/*",
+        "src/ui/*"
+      ],
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ]
+    }
+  ]
+}

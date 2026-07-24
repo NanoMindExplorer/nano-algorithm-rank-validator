@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NARV Settings — Scoring Weights</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="brand">NΔ</div>
+        <div>
+          <h1>Nano Algorithm Rank Validator</h1>
+          <p>
+            Weights mirror <code>home-mixer/scorers/weighted_scorer.rs</code> /
+            <code>ranking_scorer.rs</code>. Production magnitudes are private;
+            defaults are research-calibrated.
+          </p>
+        </div>
+      </header>
+
+      <section>
+        <h2>Viewer context defaults</h2>
+        <div class="grid2">
+          <label class="field">
+            <span>Assume in-network</span>
+            <input type="checkbox" id="inNetworkDefault" checked />
+          </label>
+          <label class="field">
+            <span>History affinity (0–1)</span>
+            <input type="number" id="historyAffinity" min="0" max="1" step="0.05" value="0.55" />
+          </label>
+          <label class="field full">
+            <span>Muted keywords (comma-separated)</span>
+            <input type="text" id="mutedKeywords" placeholder="crypto spam, giveaway" />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Pipeline params</h2>
+        <div class="grid3" id="params-grid"></div>
+      </section>
+
+      <section>
+        <h2>Positive weights</h2>
+        <div class="grid3" id="pos-weights"></div>
+      </section>
+
+      <section>
+        <h2>Negative weights</h2>
+        <div class="grid3" id="neg-weights"></div>
+      </section>
+
+      <div class="actions">
+        <button id="save" class="primary">Save settings</button>
+        <button id="reset">Reset to defaults</button>
+        <span id="msg"></span>
+      </div>
+
+      <footer>
+        Reference:
+        <a href="https://github.com/xai-org/x-algorithm" target="_blank" rel="noreferrer"
+          >github.com/xai-org/x-algorithm</a
+        >
+      </footer>
+    </div>
+    <script src="../lib/weights.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

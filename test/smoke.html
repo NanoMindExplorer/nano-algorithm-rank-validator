@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>NARV Smoke Test</title>
+    <style>
+      body {
+        font-family: ui-monospace, monospace;
+        background: #0f1419;
+        color: #e7e9ea;
+        padding: 24px;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      pre {
+        background: #16202a;
+        border: 1px solid #2f3b47;
+        border-radius: 12px;
+        padding: 14px;
+        overflow: auto;
+        font-size: 12px;
+      }
+      .ok {
+        color: #00ba7c;
+      }
+      .fail {
+        color: #f4212e;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Nano Algorithm Rank Validator — smoke test</h1>
+    <div id="out">Running…</div>
+    <pre id="report"></pre>
+
+    <script src="../src/lib/snowflake.js"></script>
+    <script src="../src/lib/weights.js"></script>
+    <script src="../src/lib/content-features.js"></script>
+    <script src="../src/lib/phoenix-proxy.js"></script>
+    <script src="../src/lib/filters.js"></script>
+    <script src="../src/lib/weighted-scorer.js"></script>
+    <script src="../src/lib/ranking-scorer.js"></script>
+    <script src="../src/lib/pipeline.js"></script>
+    <script>
+      const checks = [];
+      function assert(name, cond, detail) {
+        checks.push({ name, ok: !!cond, detail: detail || "" });
+      }
+
+      // Snowflake: known-ish properties
+      const id = "1880000000000000000";
+      const age = NARVSnowflake.tweetAgeHours(id);
+      assert("snowflake age hours is number", typeof age === "number" && age > 0, String(age));
+
+      const tweet = {
+        tweetId: id,
+        authorId: "elonmusk",
+        authorHandle: "elonmusk",
+        text: "What do you think about open-sourcing the For You algorithm?\n\nReply with your take 👇",
+        hasMedia: true,
+        hasImage: true,
+        hasVideo: false,
+        authorVerified: true,
+        authorPremium: true,
+        authorFollowers: 200000000,
+        likeCount: 52000,
+        replyCount: 8400,
+        repostCount: 12000,
+        viewCount: 4500000,
+        ageHours: 2.5,
+      };
+
+      const report = NARVPipeline.validateTweet(tweet, { inNetwork: false });
+
+      assert("has finalScore", typeof report.finalScore === "number" && report.finalScore > 0);
+      assert("has grade", report.grade && report.grade.letter);
+      assert("phoenix favorite in 0-1", report.phoenixScores.favorite_score >= 0 && report.phoenixScores.favorite_score <= 1);
+      assert("weighted contributions exist", report.weighted.rankedContributions.length >= 10);
+      assert("filters ran", report.filterReport.results.length >= 5);
+      assert("reply contribution present", report.weighted.contributions.reply != null);
+      assert("OON applied for out-of-network", report.ranking.oonFactor < 1 || report.context.inNetwork === false);
+
+      // Diversity: second post same author lower or equal multiplier
+      const d0 = NARVRanking.diversityMultiplier(0.6, 0.25, 0);
+      const d1 = NARVRanking.diversityMultiplier(0.6, 0.25, 1);
+      assert("diversity decays", d1 < d0, `${d0} -> ${d1}`);
+
+      // Draft
+      const draft = NARVPipeline.validateDraft("Buy crypto now free money guaranteed!!!", {
+        hasMedia: false,
+      });
+      assert("spam draft lower or risk", draft.insights.risks.length > 0 || draft.finalScore < report.finalScore);
+
+      const failed = checks.filter((c) => !c.ok);
+      const out = document.getElementById("out");
+      out.innerHTML = checks
+        .map(
+          (c) =>
+            `<div class="${c.ok ? "ok" : "fail"}">${c.ok ? "✓" : "✗"} ${c.name} ${c.detail || ""}</div>`
+        )
+        .join("");
+      out.innerHTML += `<p class="${failed.length ? "fail" : "ok"}"><strong>${
+        failed.length ? failed.length + " failed" : "All checks passed"
+      }</strong> · score=${report.finalScore.toFixed(4)} grade=${report.grade.letter}</p>`;
+
+      document.getElementById("report").textContent = JSON.stringify(
+        {
+          finalScore: report.finalScore,
+          grade: report.grade,
+          positiveTop: report.positiveTop,
+          negativeTop: report.negativeTop,
+          filterSummary: report.filterReport.summary,
+          disclaimer: report.disclaimer,
+        },
+        null,
+        2
+      );
+    </script>
+  </body>
+</html>
