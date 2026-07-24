@@ -53,7 +53,6 @@ Jika terkunci, panel/popup menampilkan **Follow required** + tombol ke profil + 
 
 | Fitur | Kegunaan |
 |--------|----------|
-| **Follow gate** | Wajib follow `@Deadmouse_jpeg` (owner auto-unlock) |
 | **Draft scorer** | Tes teks **sebelum** di-post |
 | **Validate** | Analisis tweet live / status page |
 | **Scan timeline** | Ranking banyak post yang terlihat di feed |
@@ -72,7 +71,7 @@ Jika terkunci, panel/popup menampilkan **Follow required** + tombol ke profil + 
 
 - Google Chrome / Chromium (Manifest V3)
 - Akun X **login** di browser yang sama
-- Follow [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) — kecuali kamu login sebagai akun itu
+- Follow [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg)
 
 ### Langkah
 
