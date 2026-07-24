@@ -1,53 +1,59 @@
-# NARV Phoenix Sidecar
+# NARV Phoenix Sidecar v1.2
 
-Optional local HTTP server so the Chrome extension can request multi-action scores
-from a process you control (instead of only the in-page proxy).
+Local HTTP scoring service for the Chrome extension.
 
 ## Quick start
 
 ```bash
 python3 sidecar/server.py
-# → http://127.0.0.1:8787
+# http://127.0.0.1:8787  mode=hash
 ```
 
-In the extension **Options**:
+## Modes (`NARV_PHOENIX_MODE`)
 
-1. Enable **Phoenix sidecar**
-2. URL: `http://127.0.0.1:8787`
-3. Click **Test connection**
-4. Save
+| Mode | Description |
+|------|-------------|
+| `hash` | **Default.** Deterministic multi-action heads from content/id hashes, blended with proxy prior. No GPU, no 3GB download. |
+| `proxy` | Pure heuristic heads (same family as in-extension proxy). |
+| `jax` | Attempts to load xai-org/x-algorithm Phoenix ranker artifacts + JAX/Haiku. Falls back to hash if missing. |
 
-If the sidecar is offline, NARV automatically falls back to the built-in proxy.
+```bash
+NARV_PHOENIX_MODE=jax \
+NARV_ARTIFACTS_DIR=/path/to/phoenix/artifacts \
+NARV_PHOENIX_PATH=/path/to/x-algorithm/phoenix \
+python3 sidecar/server.py
+```
+
+### Artifact layout (from x-algorithm LFS)
+
+```
+artifacts/ranker/config.json
+artifacts/ranker/model_params.npz
+artifacts/ranker/embedding_tables.npz
+```
 
 ## API
 
-| Method | Path | Body | Response |
-|--------|------|------|----------|
-| GET | `/health` | — | `{ ok, version, mode }` |
-| POST | `/v1/score` | `{ tweet, context? }` | `{ phoenixScores, meta }` |
-| POST | `/v1/score_batch` | `{ tweets, options? }` | `{ results }` |
+| Method | Path | Body |
+|--------|------|------|
+| GET | `/health` | — |
+| GET | `/v1/capabilities` | — |
+| GET | `/v1/profiles` | — |
+| POST | `/v1/score` | `{ tweet, context?, mode?, history? }` |
+| POST | `/v1/score_batch` | `{ tweets, options? }` |
+| POST | `/v1/validate` | `{ tweet, profileId?, weights?, context? }` |
+| POST | `/v1/compare_profiles` | `{ tweet, profiles? }` |
+| POST | `/v1/calibrate` | `{ history }` |
 
-`phoenixScores` keys match `home-mixer` / NARV:
+## Modules
 
-`favorite_score`, `reply_score`, `retweet_score`, … `report_score`, etc.
-
-## Modes
-
-| Env | Meaning |
-|-----|---------|
-| `NARV_PHOENIX_MODE=proxy` (default) | Fast multi-action estimator, no model files |
-| `NARV_PHOENIX_MODE=jax` | Hook for real Phoenix artifacts (stub until you wire checkpoints) |
-
-```bash
-NARV_SIDECAR_PORT=8787 NARV_PHOENIX_MODE=proxy python3 sidecar/server.py
-```
-
-## CORS
-
-The server sends `Access-Control-Allow-Origin: *` so the content script can call
-localhost. Only bind to `127.0.0.1` unless you know you need otherwise.
+| File | Role |
+|------|------|
+| `server.py` | HTTP API |
+| `proxy_engine.py` | Heuristic multi-action |
+| `jax_engine.py` | hash + jax loaders |
+| `weighted_engine.py` | WeightedScorer / grade (Rust port) |
 
 ## Security
 
-- Do **not** expose this port to the public internet.
-- Treat imported engagement history as private.
+Bind to `127.0.0.1` only. Do not expose publicly.

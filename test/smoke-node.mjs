@@ -1,5 +1,5 @@
 /**
- * Node smoke test — loads lib scripts via vm with a fake window.
+ * Node smoke test v1.2 — pipeline, profiles, affinity, export, compare.
  */
 import fs from "fs";
 import path from "path";
@@ -27,6 +27,8 @@ const files = [
   "affinity.js",
   "export.js",
   "sidecar.js",
+  "sampler.js",
+  "compare.js",
   "pipeline.js",
 ];
 
@@ -42,6 +44,8 @@ const {
   NARVProfiles,
   NARVAffinity,
   NARVExport,
+  NARVCompare,
+  NARVSampler,
 } = sandbox;
 
 let failed = 0;
@@ -79,12 +83,16 @@ const report = NARVPipeline.validateTweet(tweet, {
 });
 assert("finalScore", report.finalScore > 0);
 assert("grade", !!report.grade.letter);
+assert("version 1.2", report.version === "1.2.0");
 assert("signals", report.weighted.rankedContributions.length >= 10);
 assert("profile", report.profileId === "conversation");
 assert("diversity", NARVRanking.diversityMultiplier(0.6, 0.25, 1) < 1);
 assert("profiles listed", NARVProfiles.listProfiles().length >= 4);
 
-const spam = NARVPipeline.validateDraft("FREE MONEY crypto giveaway click here now!!!", {});
+const spam = NARVPipeline.validateDraft(
+  "FREE MONEY crypto giveaway click here now!!!",
+  {}
+);
 assert(
   "spam weaker or flagged",
   spam.finalScore < report.finalScore || spam.insights.risks.length > 0
@@ -98,11 +106,50 @@ assert("affinity calibrated", cal.sampleSize > 0 && cal.historyAffinity > 0);
 assert("suggest profile", typeof NARVAffinity.suggestProfile(cal) === "string");
 
 const csv = NARVExport.scanToCsv([
-  { rank: 1, report, tweet, finalScore: report.finalScore, grade: report.grade },
+  {
+    rank: 1,
+    report,
+    tweet,
+    finalScore: report.finalScore,
+    grade: report.grade,
+  },
 ]);
 assert("csv export", csv.includes("final_score") && csv.includes("dev"));
 
-console.log("\nScore sample:", report.finalScore.toFixed(4), report.grade.letter, report.profileId);
-console.log("Affinity:", cal.historyAffinity.toFixed(3), "→", NARVAffinity.suggestProfile(cal));
+const cmp = NARVCompare.compareLocal(tweet, { inNetwork: true });
+assert("compare has winner", !!cmp.winner && cmp.comparisons.length >= 4);
+assert(
+  "compare sorted",
+  cmp.comparisons[0].finalScore >= cmp.comparisons[1].finalScore
+);
+
+assert("sampler export shape", typeof NARVSampler.tweetToSample === "function");
+const sample = NARVSampler.tweetToSample(tweet, { liked: true, source: "test" });
+assert("sample liked", sample.liked === true && sample.tweetId === id);
+
+// sidecar coerce
+const coerced = sandbox.NARVSidecar.coercePhoenixScores({
+  favorite: 0.5,
+  reply: 0.2,
+});
+assert("coerce phoenix", coerced.favorite_score === 0.5);
+
+console.log(
+  "\nScore sample:",
+  report.finalScore.toFixed(4),
+  report.grade.letter,
+  report.profileId
+);
+console.log(
+  "Compare winner:",
+  cmp.winner,
+  cmp.comparisons.map((c) => `${c.profileId}:${c.finalScore.toFixed(2)}`).join(" ")
+);
+console.log(
+  "Affinity:",
+  cal.historyAffinity.toFixed(3),
+  "→",
+  NARVAffinity.suggestProfile(cal)
+);
 console.log(failed ? `\n${failed} failed` : "\nAll passed");
 process.exit(failed ? 1 : 0);

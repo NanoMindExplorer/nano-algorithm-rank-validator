@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Node smoke tests
+        run: node test/smoke-node.mjs
+
+      - name: Sidecar health + score
+        run: |
+          python3 sidecar/server.py &
+          PID=$!
+          sleep 1
+          curl -sf http://127.0.0.1:8787/health | tee /tmp/health.json
+          curl -sf -X POST http://127.0.0.1:8787/v1/validate \
+            -H 'Content-Type: application/json' \
+            -d '{"tweet":{"text":"What is your take?\n\nReply below","hasImage":true,"viewCount":1000,"likeCount":50,"replyCount":12},"context":{"historyAffinity":0.7},"profileId":"conversation"}' \
+            | tee /tmp/validate.json
+          python3 -c "import json; d=json.load(open('/tmp/validate.json')); assert d['ok'] and d['finalScore']>0"
+          curl -sf -X POST http://127.0.0.1:8787/v1/compare_profiles \
+            -H 'Content-Type: application/json' \
+            -d '{"tweet":{"text":"Video demo of ranking","hasVideo":true},"profiles":["balanced","media","conversation"]}' \
+            | tee /tmp/compare.json
+          python3 -c "import json; d=json.load(open('/tmp/compare.json')); assert d['ok'] and len(d['comparisons'])==3"
+          kill $PID || true
+
+      - name: Validate manifest
+        run: |
+          python3 -c "import json; m=json.load(open('manifest.json')); assert m['manifest_version']==3; assert m['version']; print(m['name'], m['version'])"
+
+      - name: Build extension zip
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq zip rsync >/dev/null
+          bash scripts/build-extension.sh
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: dist/*.zip

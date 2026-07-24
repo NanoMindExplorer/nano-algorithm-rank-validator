@@ -61,6 +61,8 @@
           weights: options.weights,
           params: options.params,
           profileId: options.profileId,
+          history: options.history,
+          mode: options.sidecarMode || options.mode,
         }),
       });
       clearTimeout(t);
@@ -97,6 +99,83 @@
       });
       clearTimeout(t);
       if (!res.ok) throw new Error(`Sidecar batch HTTP ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      clearTimeout(t);
+      throw e;
+    }
+  }
+
+  async function validateTweet(baseUrl, tweet, options = {}, timeoutMs = 10000) {
+    const base = normalizeBase(baseUrl);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${base}/v1/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          tweet,
+          context: {
+            inNetwork: options.inNetwork,
+            historyAffinity: options.historyAffinity,
+            viewerId: options.viewerId,
+          },
+          profileId: options.profileId,
+          weights: options.weights,
+          params: options.params,
+          history: options.history,
+          mode: options.sidecarMode,
+        }),
+      });
+      clearTimeout(t);
+      if (!res.ok) throw new Error(`Sidecar validate HTTP ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      clearTimeout(t);
+      throw e;
+    }
+  }
+
+  async function compareProfiles(baseUrl, tweet, options = {}, profiles, timeoutMs = 10000) {
+    const base = normalizeBase(baseUrl);
+    const res = await fetch(`${base}/v1/compare_profiles`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tweet,
+        context: {
+          inNetwork: options.inNetwork,
+          historyAffinity: options.historyAffinity,
+        },
+        profiles: profiles || undefined,
+        mode: options.sidecarMode,
+      }),
+    });
+    if (!res.ok) throw new Error(`Sidecar compare HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function calibrate(baseUrl, history, timeoutMs = 8000) {
+    const base = normalizeBase(baseUrl);
+    const res = await fetch(`${base}/v1/calibrate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history }),
+    });
+    if (!res.ok) throw new Error(`Sidecar calibrate HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function capabilities(baseUrl, timeoutMs = 3000) {
+    const base = normalizeBase(baseUrl);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${base}/v1/capabilities`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (e) {
       clearTimeout(t);
@@ -154,6 +233,10 @@
     health,
     scoreTweet,
     scoreBatch,
+    validateTweet,
+    compareProfiles,
+    calibrate,
+    capabilities,
     coercePhoenixScores,
     normalizeBase,
   };

@@ -2,163 +2,91 @@
 
 **Chrome extension** that validates and ranks posts on [X](https://x.com) against the open-source **For You** recommendation pipeline from [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm).
 
-> Name: **nano algorithm rank validator** · Short: **NARV** · Version **1.1.0**
+> **NARV** · Version **1.2.0** · [Integrations guide](docs/INTEGRATIONS.md) · [Research notes](docs/RESEARCH.md)
 
 ![Manifest V3](https://img.shields.io/badge/MV3-ready-1d9bf0)
-![Algorithm](https://img.shields.io/badge/x--algorithm-Phoenix%20WeightedScorer-a855f7)
+![CI](https://img.shields.io/badge/CI-smoke%20%2B%20sidecar-00ba7c)
 
 ---
 
-## What it does
+## Features (v1.2 complete)
 
-On `x.com` / `twitter.com`, NARV:
-
-1. **Parses** tweets from the DOM (status page or timeline cards)
-2. Runs a client-side **For You pipeline simulation**:
-   - Feature / hydration extraction  
-   - Pre- & post-**filters** (Age, Self, VF soft, muted keywords, …)  
-   - **Phoenix multi-action** P(engagement) **proxy** (19+ signals)  
-   - **WeightedScorer** `Σ weight_i × P_i` (port of Rust scorer structure)  
-   - **Author diversity** exponential decay  
-   - **OON** (out-of-network) factor  
-3. Shows a **grade, score path, signal bars, filter report, and creator insights**
-4. Supports **draft scoring**, **timeline scan ranking**, and **editable weights**
-
-### Important honesty bound
-
-Production **Phoenix** is a Grok-based transformer (JAX) with user engagement history and multi-GB embeddings. Exact production **weight magnitudes** live in a private `params` module and are **not** in the OSS repo.
-
-NARV implements the **full public algorithm structure** and a transparent **proxy** for P(action). Every report is labeled accordingly. See [`docs/RESEARCH.md`](docs/RESEARCH.md).
+| Layer | Capability |
+|-------|------------|
+| **Scoring** | Phoenix multi-action heads (proxy / hash sidecar / jax path) + WeightedScorer Σ wᵢ·Pᵢ |
+| **Pipeline** | Filters, author diversity, OON factor, premium soft boost, grade A+–F |
+| **Profiles** | balanced · conversation · media · news · viral · OSS demo |
+| **A/B compare** | Same tweet under all profiles (`Alt+Shift+C`) |
+| **Affinity** | Calibrate from engagement history JSON |
+| **Sampler** | Opt-in likes import + **+HIST** buttons + auto on `/likes` |
+| **Export** | CSV / JSON timeline scans & reports |
+| **Sidecar** | Local Python server: score, validate, compare, calibrate |
+| **Packaging** | `npm run build` → Chrome zip · GitHub Actions CI |
 
 ---
 
 ## Install (unpacked)
 
-1. Clone or copy this folder  
-2. Chrome → `chrome://extensions` → enable **Developer mode**  
-3. **Load unpacked** → select `nano-algorithm-rank-validator/`  
-4. Open [https://x.com](https://x.com) and use the purple **NΔ** button (bottom-right)
+1. Clone: `git clone https://github.com/NanoMindExplorer/nano-algorithm-rank-validator.git`
+2. Chrome → `chrome://extensions` → **Developer mode** → **Load unpacked**
+3. Open [x.com](https://x.com) → purple **NΔ** FAB
 
-### Shortcuts
+### Shortcuts on x.com
 
-| Action | How |
-|--------|-----|
-| Validate current tweet | `Alt`+`Shift`+`N` or popup **Validate** |
-| Per-tweet button | Hover card → **NΔ RANK** |
-| Timeline rank scan | Panel → **Scan timeline** |
-| Draft score | Panel → **Score draft** |
-| Weights | Extension **Options** page |
+| Keys | Action |
+|------|--------|
+| `Alt+Shift+N` | Validate |
+| `Alt+Shift+C` | A/B profiles |
+| `Alt+Shift+S` | Engagement sampler |
 
 ---
 
-## Algorithm mapping
-
-| OSS component | NARV module |
-|---------------|-------------|
-| `phoenix` multi-action outputs | `src/lib/phoenix-proxy.js` |
-| `weighted_scorer.rs` / `ranking_scorer.rs` | `src/lib/weighted-scorer.js` |
-| `author_diversity_scorer.rs` + OON | `src/lib/ranking-scorer.js` |
-| `home-mixer/filters/*` | `src/lib/filters.js` |
-| Snowflake AgeFilter | `src/lib/snowflake.js` |
-| Weight / param names | `src/lib/weights.js` |
-| End-to-end stages | `src/lib/pipeline.js` |
-
-### Score formula (public)
-
-```
-combined = Σ (weight_i × P(action_i))
-final    = offset_score(combined)
-final   *= diversity_multiplier(author_position)   // if batch
-final   *= oon_weight_factor                       // if out-of-network
-```
-
-Default weights (editable) emphasize **reply / conversation**, then share/quote/follow, then passive engagement; block/mute/report are strongly negative — consistent with scorer structure and historical hierarchy research.
-
-Demo weights inside OSS `run_pipeline.py` (`fav=1, reply=0.5, rt=0.3, dwell=0.2`) are **toy** values for the mini model, not production.
-
----
-
-## Project layout
-
-```
-nano-algorithm-rank-validator/
-├── manifest.json
-├── README.md
-├── docs/RESEARCH.md          # Deep algorithm research notes
-├── icons/
-├── src/
-│   ├── background/service-worker.js
-│   ├── content/              # Injected on x.com
-│   ├── popup/                # Extension popup
-│   ├── options/              # Weight editor
-│   ├── lib/                  # Algorithm ports + proxy
-│   └── ui/                   # Side panel UI
-└── test/smoke.html           # Offline pipeline smoke test
-```
-
----
-
-## Offline smoke test
-
-Open `test/smoke.html` in a browser (or run the Node-free page locally) to exercise the scoring pipeline without Chrome APIs.
+## Sidecar (optional)
 
 ```bash
-# optional quick check with a local static server
-cd nano-algorithm-rank-validator && python3 -m http.server 8765
-# then open http://127.0.0.1:8765/test/smoke.html
+python3 sidecar/server.py          # hash mode default
+npm run sidecar                    # same
 ```
+
+Options → enable sidecar → URL `http://127.0.0.1:8787` → mode `hash` → Test → Save.
+
+JAX (advanced): unpack Phoenix artifacts from x-algorithm, then:
+
+```bash
+NARV_PHOENIX_MODE=jax \
+NARV_ARTIFACTS_DIR=./artifacts \
+NARV_PHOENIX_PATH=/path/to/x-algorithm/phoenix \
+python3 sidecar/server.py
+```
+
+---
+
+## Develop
+
+```bash
+npm test                 # node pipeline smoke
+npm run build            # dist/nano-algorithm-rank-validator-v1.2.0.zip
+npm run build:store      # zip without sidecar (store-oriented)
+```
+
+Algorithm mapping and honesty bounds: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md), [docs/RESEARCH.md](docs/RESEARCH.md).
 
 ---
 
 ## Privacy
 
-- Runs **locally** in the browser on X pages  
-- **No** remote analytics backend  
-- Settings stored in `chrome.storage.sync`  
-- Only host permissions: `x.com` / `twitter.com`
+- Runs locally in the browser on X pages  
+- Engagement samples stay in `chrome.storage.local` until you export/clear  
+- Sidecar binds to localhost only  
+- No remote analytics backend  
 
 ---
 
 ## License
 
-Extension code: MIT (or as you prefer for your fork).
-
-Algorithm analysis derived from **Apache-2.0** [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm).  
-This project does **not** redistribute the Phoenix model weights or private params.
+MIT (extension). Algorithm analysis derived from Apache-2.0 [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm).  
+Does **not** redistribute Phoenix model weights.
 
 ---
 
-## v1.1 integrations
-
-| Feature | Where |
-|---------|--------|
-| **Weight profiles** (balanced, conversation, media, news, viral, OSS demo) | Options → Weight profile · `src/lib/profiles.js` |
-| **Affinity calibration** from engagement history JSON | Options → Affinity · `src/lib/affinity.js` · sample: `test/sample-history.json` |
-| **CSV / JSON export** of timeline scans & reports | Side panel after scan · `src/lib/export.js` |
-| **Phoenix sidecar** (local HTTP scores + auto fallback) | `sidecar/server.py` · Options toggle · `src/lib/sidecar.js` |
-
-### Sidecar quick start
-
-```bash
-python3 sidecar/server.py
-# http://127.0.0.1:8787
-```
-
-Enable in Options → **Phoenix sidecar** → Test connection → Save.  
-If the sidecar is down, scoring falls back to the in-extension proxy automatically.
-
-### Sample history import
-
-Use `test/sample-history.json` in Options → Calibrate from history, then **Apply suggested profile**.
-
----
-
-## Roadmap ideas
-
-- [ ] Wire sidecar `NARV_PHOENIX_MODE=jax` to real Phoenix checkpoints  
-- [ ] Auto-sample engagement from your own likes timeline (opt-in)  
-- [ ] Graphite / CI packaging for Chrome Web Store zip  
-
----
-
-Built for researchers and creators who want **transparent, structure-faithful** validation against the open X algorithm — not black-box “virality scores.”
+Built for researchers and creators who want **transparent, structure-faithful** validation against the open X algorithm.

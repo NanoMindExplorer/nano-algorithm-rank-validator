@@ -233,7 +233,7 @@
     const isProxy = scorerMode !== "sidecar";
 
     return {
-      version: "1.1.0",
+      version: "1.2.0",
       algorithm: isProxy
         ? "xai-org/x-algorithm (client proxy)"
         : "xai-org/x-algorithm (sidecar + WeightedScorer)",

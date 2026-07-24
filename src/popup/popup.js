@@ -28,6 +28,12 @@ document.getElementById("btn-validate").addEventListener("click", () => {
 document.getElementById("btn-scan").addEventListener("click", () => {
   send("NARV_SCAN");
 });
+document.getElementById("btn-compare").addEventListener("click", () => {
+  send("NARV_COMPARE");
+});
+document.getElementById("btn-sample").addEventListener("click", () => {
+  send("NARV_SAMPLE");
+});
 document.getElementById("btn-open").addEventListener("click", () => {
   send("NARV_OPEN_PANEL");
 });
@@ -41,9 +47,14 @@ activeTab().then((tab) => {
   else status.textContent = "Not on X";
 });
 
-chrome.storage.sync.get({ profileId: "balanced", useSidecar: false }, (s) => {
-  const line = document.getElementById("profile-line");
-  if (line) {
-    line.textContent = `Profile: ${s.profileId}${s.useSidecar ? " · sidecar on" : ""}`;
+chrome.storage.sync.get(
+  { profileId: "balanced", useSidecar: false, sidecarMode: "hash" },
+  (s) => {
+    const line = document.getElementById("profile-line");
+    if (line) {
+      line.textContent = `Profile: ${s.profileId}${
+        s.useSidecar ? ` · sidecar ${s.sidecarMode || "hash"}` : ""
+      }`;
+    }
   }
-});
+);

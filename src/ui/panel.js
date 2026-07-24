@@ -31,7 +31,10 @@
         mutedKeywords: "",
         useSidecar: false,
         sidecarUrl: "http://127.0.0.1:8787",
+        sidecarMode: "hash",
         affinityCalibration: null,
+        autoSampleEnabled: false,
+        showSampleButtons: true,
       });
       const profileId = stored.profileId || "balanced";
       let weights = { ...defaults.weights, ...(stored.weights || {}) };
@@ -73,7 +76,10 @@
           .filter(Boolean),
         useSidecar: !!stored.useSidecar,
         sidecarUrl: stored.sidecarUrl || "http://127.0.0.1:8787",
+        sidecarMode: stored.sidecarMode || "hash",
         affinityCalibration: cal,
+        autoSampleEnabled: !!stored.autoSampleEnabled,
+        showSampleButtons: stored.showSampleButtons !== false,
       };
     } catch {
       settings = {
@@ -86,7 +92,10 @@
         mutedKeywords: [],
         useSidecar: false,
         sidecarUrl: "http://127.0.0.1:8787",
+        sidecarMode: "hash",
         affinityCalibration: null,
+        autoSampleEnabled: false,
+        showSampleButtons: true,
       };
     }
     return settings;
@@ -111,9 +120,11 @@
           </div>
         </div>
         <div class="narv-toolbar">
-          <button class="narv-btn narv-btn-primary" id="narv-validate-active" type="button">Validate this page</button>
-          <button class="narv-btn narv-btn-secondary" id="narv-validate-hover" type="button">Scan timeline</button>
-          <button class="narv-btn narv-btn-ghost" id="narv-draft" type="button">Score draft</button>
+          <button class="narv-btn narv-btn-primary" id="narv-validate-active" type="button">Validate</button>
+          <button class="narv-btn narv-btn-secondary" id="narv-validate-hover" type="button">Scan</button>
+          <button class="narv-btn narv-btn-secondary" id="narv-compare" type="button">A/B profiles</button>
+          <button class="narv-btn narv-btn-ghost" id="narv-draft" type="button">Draft</button>
+          <button class="narv-btn narv-btn-ghost" id="narv-sample" type="button">Sample hist</button>
         </div>
         <div class="narv-tabs">
           <button class="narv-tab active" data-tab="report" type="button">Report</button>
@@ -144,6 +155,8 @@
       .querySelector("#narv-validate-hover")
       .addEventListener("click", () => scanTimeline());
     rootEl.querySelector("#narv-draft").addEventListener("click", () => scoreDraft());
+    rootEl.querySelector("#narv-compare").addEventListener("click", () => compareProfiles());
+    rootEl.querySelector("#narv-sample").addEventListener("click", () => sampleHistoryUI());
 
     rootEl.querySelectorAll(".narv-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -199,7 +212,151 @@
       mutedKeywords: settings.mutedKeywords,
       useSidecar: settings.useSidecar,
       sidecarUrl: settings.sidecarUrl,
+      sidecarMode: settings.sidecarMode,
     };
+  }
+
+  async function compareProfiles() {
+    openPanel();
+    bodyEl.innerHTML = `<div class="narv-empty">Comparing profiles…</div>`;
+    let tweet =
+      root.NARVParser.parseStatusPage() ||
+      (() => {
+        const first = document.querySelector('article[data-testid="tweet"]');
+        return first ? root.NARVParser.parseTweetArticle(first) : null;
+      })();
+    if (!tweet) {
+      bodyEl.innerHTML = `<div class="narv-empty">No tweet found to compare.</div>`;
+      return;
+    }
+    const opts = await getOptions();
+    if (!root.NARVCompare) {
+      bodyEl.innerHTML = `<div class="narv-empty">Compare module missing — reload extension.</div>`;
+      return;
+    }
+    try {
+      const result = await root.NARVCompare.compare(tweet, opts);
+      bodyEl.innerHTML = `
+        <div class="narv-card">
+          <div class="narv-card-h">A/B profile compare <span>${esc(result.mode)} · winner ${esc(result.winner || "?")}</span></div>
+          <div class="narv-card-b">
+            <div class="narv-tweet-preview" style="margin-bottom:10px">${esc((tweet.text || "").slice(0, 220))}</div>
+            ${result.comparisons
+              .map(
+                (c) => `
+              <div class="narv-filter-item">
+                <div class="narv-dot pass" style="background:${esc(c.grade?.color || "#1d9bf0")}"></div>
+                <div style="flex:1">
+                  <div style="font-weight:700">#${c.rank} · ${esc(c.profileId)} · ${esc(c.grade?.letter || "")} · ${((c.finalScore || 0) * 100).toFixed(1)}</div>
+                  <div class="narv-muted">raw ${(c.raw != null ? c.raw : c.report?.weighted?.raw || 0).toFixed?.(3) || c.raw}</div>
+                </div>
+              </div>`
+              )
+              .join("")}
+            ${result.sidecarError ? `<p class="narv-muted">Sidecar error: ${esc(result.sidecarError)}</p>` : ""}
+            <button class="narv-btn narv-btn-secondary" id="narv-export-compare" type="button" style="margin-top:10px">Export compare JSON</button>
+          </div>
+        </div>
+        <p class="narv-disclaimer">Same Phoenix heads (proxy/sidecar), different WeightedScorer profiles — mirrors how creators might tune engagement objectives.</p>
+      `;
+      bodyEl.querySelector("#narv-export-compare")?.addEventListener("click", () => {
+        if (root.NARVExport) {
+          root.NARVExport.downloadText(
+            `narv-compare-${tweet.tweetId || "draft"}.json`,
+            JSON.stringify(result, null, 2),
+            "application/json"
+          );
+          flash("Compare exported");
+        }
+      });
+    } catch (e) {
+      bodyEl.innerHTML = `<div class="narv-empty">Compare failed: ${esc(e.message || e)}</div>`;
+    }
+  }
+
+  async function sampleHistoryUI() {
+    openPanel();
+    await loadSettings();
+    const samples = root.NARVSampler
+      ? await root.NARVSampler.loadSamples()
+      : [];
+    const onLikes = root.NARVSampler?.isLikesPage?.() || false;
+    bodyEl.innerHTML = `
+      <div class="narv-card">
+        <div class="narv-card-h">Engagement history sampler <span>${samples.length} samples</span></div>
+        <div class="narv-card-b">
+          <p class="narv-muted" style="margin-top:0">
+            Opt-in collector for affinity calibration. On your
+            <strong>/likes</strong> page, bulk-import visible liked posts.
+            Or use <strong>+HIST</strong> on any tweet.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+            <button class="narv-btn narv-btn-primary" id="narv-sample-visible" type="button">
+              ${onLikes ? "Import visible likes" : "Sample visible as liked"}
+            </button>
+            <button class="narv-btn narv-btn-secondary" id="narv-sample-calibrate" type="button">Calibrate affinity</button>
+            <button class="narv-btn narv-btn-secondary" id="narv-sample-export" type="button">Export history JSON</button>
+            <button class="narv-btn narv-btn-ghost" id="narv-sample-clear" type="button">Clear</button>
+          </div>
+          <div class="narv-muted" id="narv-sample-status">
+            ${onLikes ? "Likes page detected." : "Tip: open x.com/YOUR_HANDLE/likes for best import."}
+            Affinity now: ${(settings?.historyAffinity ?? 0.55).toFixed(3)}
+          </div>
+          <div style="margin-top:10px;max-height:220px;overflow:auto">
+            ${samples
+              .slice(-15)
+              .reverse()
+              .map(
+                (s) => `
+              <div class="narv-filter-item">
+                <div class="narv-dot pass"></div>
+                <div>
+                  <div style="font-weight:600">@${esc(s.author || "?")} · ${esc(s.source || "")}</div>
+                  <div class="narv-muted">${esc((s.text || "").slice(0, 80))}</div>
+                </div>
+              </div>`
+              )
+              .join("") || '<div class="narv-muted">No samples yet.</div>'}
+          </div>
+        </div>
+      </div>
+    `;
+
+    bodyEl.querySelector("#narv-sample-visible")?.addEventListener("click", async () => {
+      const status = bodyEl.querySelector("#narv-sample-status");
+      if (!root.NARVSampler) return;
+      const r = await root.NARVSampler.sampleVisibleAsLiked(root.NARVParser);
+      status.textContent = `Added ~${r.added} (scanned ${r.scanned}). Total ${r.total}.`;
+      flash(`Sampled ${r.added}`);
+    });
+    bodyEl.querySelector("#narv-sample-calibrate")?.addEventListener("click", async () => {
+      if (!root.NARVSampler || !root.NARVAffinity) return;
+      const cal = await root.NARVSampler.calibrateAndStore(root.NARVAffinity, true);
+      const status = bodyEl.querySelector("#narv-sample-status");
+      if (cal) {
+        status.textContent = `Calibrated affinity=${cal.historyAffinity.toFixed(3)} · suggested ${root.NARVAffinity.suggestProfile(cal)} · n=${cal.sampleSize}`;
+        flash("Affinity updated");
+        settings = null; // force reload
+      } else {
+        status.textContent = "Calibration failed — need samples first.";
+      }
+    });
+    bodyEl.querySelector("#narv-sample-export")?.addEventListener("click", async () => {
+      if (!root.NARVSampler || !root.NARVExport) return;
+      const hist = await root.NARVSampler.exportHistoryObject();
+      root.NARVExport.downloadText(
+        `narv-history-${new Date().toISOString().slice(0, 10)}.json`,
+        JSON.stringify(hist, null, 2),
+        "application/json"
+      );
+      flash("History exported");
+    });
+    bodyEl.querySelector("#narv-sample-clear")?.addEventListener("click", async () => {
+      if (!root.NARVSampler) return;
+      await root.NARVSampler.clearSamples();
+      flash("Cleared");
+      sampleHistoryUI();
+    });
   }
 
   async function scoreTweet(tweet, opts) {
@@ -673,6 +830,13 @@
       article.style.position = article.style.position || "relative";
       article.appendChild(btn);
     });
+
+    // Optional history sample buttons
+    if (settings?.showSampleButtons !== false && root.NARVSampler) {
+      root.NARVSampler.injectSampleButtons(root.NARVParser, () => {
+        flash("Added to history");
+      });
+    }
   }
 
   const NARVPanel = {
@@ -683,6 +847,9 @@
     validateTweetObject,
     injectTweetButtons,
     loadSettings,
+    compareProfiles,
+    sampleHistoryUI,
+    scanTimeline,
   };
 
   root.NARVPanel = NARVPanel;

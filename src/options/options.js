@@ -95,7 +95,10 @@ function render() {
       mutedKeywords: "",
       useSidecar: false,
       sidecarUrl: "http://127.0.0.1:8787",
+      sidecarMode: "hash",
       affinityCalibration: null,
+      autoSampleEnabled: false,
+      showSampleButtons: true,
     },
     (stored) => {
       selectedProfileId = stored.profileId || "balanced";
@@ -120,6 +123,10 @@ function render() {
       document.getElementById("useSidecar").checked = !!stored.useSidecar;
       document.getElementById("sidecarUrl").value =
         stored.sidecarUrl || "http://127.0.0.1:8787";
+      document.getElementById("sidecarMode").value = stored.sidecarMode || "hash";
+      document.getElementById("autoSampleEnabled").checked = !!stored.autoSampleEnabled;
+      document.getElementById("showSampleButtons").checked =
+        stored.showSampleButtons !== false;
 
       if (cal) {
         document.getElementById("calibration-out").textContent = JSON.stringify(
@@ -160,7 +167,10 @@ function collect() {
     mutedKeywords: document.getElementById("mutedKeywords").value,
     useSidecar: document.getElementById("useSidecar").checked,
     sidecarUrl: document.getElementById("sidecarUrl").value.trim(),
+    sidecarMode: document.getElementById("sidecarMode").value,
     affinityCalibration: lastCalibration,
+    autoSampleEnabled: document.getElementById("autoSampleEnabled").checked,
+    showSampleButtons: document.getElementById("showSampleButtons").checked,
   };
 }
 
@@ -255,7 +265,10 @@ document.getElementById("reset").addEventListener("click", () => {
       mutedKeywords: "",
       useSidecar: false,
       sidecarUrl: "http://127.0.0.1:8787",
+      sidecarMode: "hash",
       affinityCalibration: null,
+      autoSampleEnabled: false,
+      showSampleButtons: true,
     },
     () => {
       render();

@@ -1,5 +1,5 @@
 /**
- * Background service worker — defaults for v1.1 integrations.
+ * Background service worker — defaults for v1.2 integrations.
  */
 
 const DEFAULTS = {
@@ -47,14 +47,16 @@ const DEFAULTS = {
   mutedKeywords: "",
   useSidecar: false,
   sidecarUrl: "http://127.0.0.1:8787",
+  sidecarMode: "hash",
   affinityCalibration: null,
+  autoSampleEnabled: false,
+  showSampleButtons: true,
 };
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === "install") {
     await chrome.storage.sync.set(DEFAULTS);
   } else if (details.reason === "update") {
-    // Fill any missing v1.1 keys without wiping user weights
     const current = await chrome.storage.sync.get(null);
     const patch = {};
     for (const [k, v] of Object.entries(DEFAULTS)) {

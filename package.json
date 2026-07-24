@@ -1,0 +1,29 @@
+{
+  "name": "nano-algorithm-rank-validator",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Chrome extension: validate X posts against open-source For You algorithm (xai-org/x-algorithm)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NanoMindExplorer/nano-algorithm-rank-validator.git"
+  },
+  "scripts": {
+    "test": "node test/smoke-node.mjs",
+    "test:sidecar": "python3 -c \"import subprocess,time,urllib.request,json,sys; p=subprocess.Popen([sys.executable,'sidecar/server.py']); time.sleep(1); print(urllib.request.urlopen('http://127.0.0.1:8787/health').read().decode()); p.terminate()\"",
+    "sidecar": "python3 sidecar/server.py",
+    "build": "bash scripts/build-extension.sh",
+    "build:store": "NARV_STORE_PACKAGE=1 bash scripts/build-extension.sh"
+  },
+  "keywords": [
+    "chrome-extension",
+    "twitter",
+    "x",
+    "algorithm",
+    "phoenix",
+    "xai"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

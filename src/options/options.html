@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NARV Settings — Profiles, Affinity, Sidecar</title>
+    <title>NARV Settings — v1.2 Profiles, Affinity, Sidecar, Sampler</title>
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
@@ -13,8 +13,8 @@
         <div>
           <h1>Nano Algorithm Rank Validator</h1>
           <p>
-            v1.1 — weight profiles, affinity calibration, CSV export, optional Phoenix sidecar.
-            Structure mirrors <code>xai-org/x-algorithm</code>.
+            v1.2 — profiles, affinity, CSV export, hash/jax sidecar, A/B compare,
+            engagement sampler. Structure mirrors <code>xai-org/x-algorithm</code>.
           </p>
         </div>
       </header>
@@ -69,8 +69,9 @@
       <section>
         <h2>Phoenix sidecar (optional)</h2>
         <p class="hint">
-          Run <code>sidecar/server.py</code> locally to supply multi-action scores.
-          Extension falls back to the built-in proxy if the sidecar is offline.
+          Run <code>python3 sidecar/server.py</code> for hash/jax multi-action heads +
+          <code>/v1/validate</code>, <code>/v1/compare_profiles</code>, <code>/v1/calibrate</code>.
+          Extension falls back to the in-page proxy if offline.
         </p>
         <div class="grid2">
           <label class="field">
@@ -81,10 +82,37 @@
             <span>Sidecar base URL</span>
             <input type="text" id="sidecarUrl" value="http://127.0.0.1:8787" />
           </label>
+          <label class="field">
+            <span>Sidecar engine mode</span>
+            <select id="sidecarMode">
+              <option value="hash">hash (default, no GPU)</option>
+              <option value="proxy">proxy (heuristic)</option>
+              <option value="jax">jax (needs Phoenix artifacts)</option>
+            </select>
+          </label>
         </div>
         <div class="actions" style="margin-top: 10px">
           <button id="ping-sidecar" type="button">Test connection</button>
           <span id="sidecar-status" class="hint"></span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Engagement auto-sampler</h2>
+        <p class="hint">
+          Collect local history for affinity calibration. On
+          <code>x.com/YOU/likes</code>, bulk-import visible posts. Buttons
+          <strong>+HIST</strong> appear on hover when enabled.
+        </p>
+        <div class="grid2">
+          <label class="field">
+            <span>Auto-sample on /likes page load</span>
+            <input type="checkbox" id="autoSampleEnabled" />
+          </label>
+          <label class="field">
+            <span>Show +HIST buttons on tweets</span>
+            <input type="checkbox" id="showSampleButtons" checked />
+          </label>
         </div>
       </section>
 

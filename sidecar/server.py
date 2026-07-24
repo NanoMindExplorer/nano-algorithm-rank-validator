@@ -1,155 +1,201 @@
 #!/usr/bin/env python3
 """
-NARV Phoenix Sidecar — optional local scoring server for the Chrome extension.
+NARV Phoenix Sidecar v1.2 — full local scoring service.
 
-Default mode: *proxy-compatible* multi-action scores (no multi-GB model required).
-If you export Phoenix checkpoints from xai-org/x-algorithm, set NARV_PHOENIX_MODE=jax
-and point NARV_ARTIFACTS_DIR at the artifacts folder (advanced / optional).
-
-API:
+Endpoints:
   GET  /health
-  POST /v1/score        { "tweet": {...}, "context": {...} }
-  POST /v1/score_batch  { "tweets": [...], "options": {...} }
+  GET  /v1/artifacts
+  GET  /v1/profiles
+  POST /v1/score
+  POST /v1/score_batch
+  POST /v1/validate          full WeightedScorer pipeline
+  POST /v1/compare_profiles  A/B weight profiles
+  POST /v1/calibrate         affinity from history JSON
 
-Run:
-  python3 sidecar/server.py
-  # listens on http://127.0.0.1:8787
-
-CORS is open for extension pages talking to localhost.
+Env:
+  NARV_SIDECAR_HOST=127.0.0.1
+  NARV_SIDECAR_PORT=8787
+  NARV_PHOENIX_MODE=proxy|hash|jax
+  NARV_ARTIFACTS_DIR=...
+  NARV_PHOENIX_PATH=...
 """
 
 from __future__ import annotations
 
 import json
-import math
 import os
-import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
+
+# Ensure sidecar dir on path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from jax_engine import detect_artifacts, score as engine_score, try_load_jax  # noqa: E402
+from proxy_engine import proxy_phoenix_scores  # noqa: E402
+from weighted_engine import (  # noqa: E402
+    DEFAULT_PARAMS,
+    DEFAULT_WEIGHTS,
+    apply_author_diversity,
+    compute_weighted,
+)
 
 HOST = os.environ.get("NARV_SIDECAR_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NARV_SIDECAR_PORT", "8787"))
-MODE = os.environ.get("NARV_PHOENIX_MODE", "proxy")  # proxy | jax
-VERSION = "1.1.0"
+MODE = os.environ.get("NARV_PHOENIX_MODE", "hash")  # proxy | hash | jax
+VERSION = "1.2.0"
 
-QUESTION_RE = re.compile(
-    r"\?|^(who|what|when|where|why|how|do you|have you|should|would|could)\b",
-    re.I | re.M,
-)
-CTA_RE = re.compile(
-    r"\b(reply|comment|rt|repost|quote|share|follow|thoughts|agree|tell me|your take)\b",
-    re.I,
-)
-SPAM_RE = re.compile(
-    r"\b(free money|guaranteed|click here|limited time|act now|crypto giveaway|dm me for)\b",
-    re.I,
-)
-URL_RE = re.compile(r"https?://[^\s]+", re.I)
+PROFILES: Dict[str, Dict[str, Any]] = {
+    "balanced": {"weights": {}, "params": {}},
+    "conversation": {
+        "weights": {
+            "reply": 18.0,
+            "quote": 4.0,
+            "follow_author": 5.5,
+            "dwell": 0.8,
+            "favorite": 0.7,
+            "retweet": 0.8,
+        },
+        "params": {},
+    },
+    "media": {
+        "weights": {
+            "vqv": 3.5,
+            "photo_expand": 2.0,
+            "dwell": 1.2,
+            "share": 3.0,
+            "reply": 8.0,
+        },
+        "params": {},
+    },
+    "news": {
+        "weights": {
+            "click": 2.5,
+            "profile_click": 2.0,
+            "share_via_copy_link": 2.5,
+            "share": 2.5,
+            "quote": 3.0,
+            "reply": 10.0,
+        },
+        "params": {},
+    },
+    "viral": {
+        "weights": {
+            "retweet": 4.0,
+            "share": 4.5,
+            "quote": 4.0,
+            "favorite": 1.5,
+            "reply": 10.0,
+        },
+        "params": {},
+    },
+}
 
 
-def clamp01(x: float) -> float:
-    return max(0.0, min(1.0, float(x)))
+def merge_weights(profile_id: Optional[str], override: Optional[Dict] = None) -> Dict[str, float]:
+    base = dict(DEFAULT_WEIGHTS)
+    if profile_id and profile_id in PROFILES:
+        base.update(PROFILES[profile_id].get("weights") or {})
+    if override:
+        base.update(override)
+    return base
 
 
-def sigmoid(x: float) -> float:
-    if x > 20:
-        return 1.0
-    if x < -20:
-        return 0.0
-    return 1.0 / (1.0 + math.exp(-x))
+def merge_params(profile_id: Optional[str], override: Optional[Dict] = None) -> Dict[str, float]:
+    base = dict(DEFAULT_PARAMS)
+    if profile_id and profile_id in PROFILES:
+        base.update(PROFILES[profile_id].get("params") or {})
+    if override:
+        base.update(override)
+    return base
 
 
-def proxy_phoenix_scores(tweet: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
-    """Lightweight multi-action head estimator compatible with NARV WeightedScorer."""
-    context = context or {}
-    text = (tweet.get("text") or "").strip()
-    chars = len(text)
-    words = len(text.split()) if text else 0
-    has_video = bool(tweet.get("hasVideo") or tweet.get("has_video"))
-    has_image = bool(tweet.get("hasImage") or tweet.get("has_image") or tweet.get("hasGif"))
-    has_media = bool(tweet.get("hasMedia") or has_video or has_image)
-    external = bool(tweet.get("hasExternalLink")) or bool(URL_RE.search(text) and not has_media)
-    spam = 1.0 if SPAM_RE.search(text) else 0.0
-    question = 1.0 if QUESTION_RE.search(text) else 0.0
-    cta = 1.0 if CTA_RE.search(text) else 0.0
-    in_network = context.get("inNetwork", True)
-    affinity = float(context.get("historyAffinity", 0.55) or 0.55)
+def strip_meta(scores: Dict[str, Any]) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    s = dict(scores)
+    meta = s.pop("_meta", {}) or {}
+    return s, meta
 
-    likes = float(tweet.get("likeCount") or tweet.get("likes") or 0)
-    replies = float(tweet.get("replyCount") or tweet.get("replies") or 0)
-    reposts = float(tweet.get("repostCount") or tweet.get("reposts") or 0)
-    views = max(float(tweet.get("viewCount") or tweet.get("views") or 0), 1.0)
 
-    media_score = 1.0 if has_video else (0.7 if has_image else 0.15)
-    conversation = clamp01(question * 0.45 + cta * 0.35 + min(0.3, math.log10(replies + 1) / 4))
-    length_score = 1.0 if 80 <= chars <= 220 else (0.75 if 40 <= chars <= 280 else (0.35 if chars else 0.1))
-    structure = clamp01(length_score * 0.5 + (0.3 if "\n" in text else 0) + media_score * 0.2)
+def calibrate_affinity(raw: Any) -> Dict[str, Any]:
+    """Minimal mirror of affinity.js calibrate()."""
+    if raw is None:
+        items = []
+    elif isinstance(raw, list):
+        items = raw
+    elif isinstance(raw, dict):
+        items = (
+            raw.get("engagements")
+            or raw.get("history")
+            or raw.get("items")
+            or raw.get("sequence")
+            or []
+        )
+    else:
+        items = []
 
-    substance = -2.2 if chars <= 0 else (-1.4 if chars < 20 else (-0.55 if chars < 40 else length_score * 0.55))
-    quality = (
-        -1.55
-        + substance
-        + media_score * 0.85
-        + structure * 0.65
-        + conversation * 1.25
-        + affinity * 0.7
-        + (0.18 if in_network else -0.2)
-        + (-0.55 if external else 0.0)
-        + (-1.6 if spam else 0.0)
-        + (-0.9 if words < 3 else 0.0)
-        + min(1.2, (likes + replies * 3 + reposts * 2) / views * 25)
-    )
-    q = sigmoid(quality)
+    n = len(items)
+    if n == 0:
+        return {
+            "historyAffinity": 0.55,
+            "sampleSize": 0,
+            "notes": ["Empty history"],
+        }
 
-    like_rate = likes / views
-    reply_rate = replies / views
-    repost_rate = reposts / views
+    pos = neg = media = convo = 0
+    for it in items:
+        actions = it.get("actions") or {}
+        liked = bool(it.get("liked") or it.get("favorite") or actions.get("1") or actions.get(1))
+        replied = bool(it.get("replied") or it.get("reply") or actions.get("4") or actions.get(4))
+        reposted = bool(it.get("reposted") or it.get("retweeted") or actions.get("6") or actions.get(6))
+        bad = bool(
+            it.get("not_interested")
+            or it.get("blocked")
+            or it.get("muted")
+            or it.get("reported")
+        )
+        if liked or replied or reposted or it.get("dwelled"):
+            pos += 1
+        if bad:
+            neg += 1
+        if it.get("has_media") or it.get("hasMedia") or it.get("has_video") or it.get("hasVideo"):
+            media += 1
+        text = it.get("text") or ""
+        if replied or "?" in text:
+            convo += 1
 
-    def blend(prior: float, observed: float) -> float:
-        w = min(1.0, views / (views + 80.0))
-        return clamp01(prior * (1 - w) + observed * w)
+    positive_rate = pos / n
+    negative_rate = neg / n
+    affinity = max(0.0, min(1.0, 0.35 + positive_rate * 0.5 - negative_rate * 0.25))
+    deep = sum(
+        1
+        for it in items
+        if it.get("replied") or it.get("reposted") or it.get("quoted")
+    ) / n
+    affinity = max(0.0, min(1.0, affinity + deep * 0.12))
 
-    scores = {
-        "favorite_score": blend(clamp01(q * 0.85), min(1.0, like_rate * 8)),
-        "reply_score": blend(clamp01(q * 0.45 + conversation * 0.55), min(1.0, reply_rate * 12)),
-        "retweet_score": blend(clamp01(q * 0.4 + media_score * 0.2), min(1.0, repost_rate * 15)),
-        "photo_expand_score": clamp01(q * 0.5 + 0.2) if has_image else clamp01(q * 0.05),
-        "click_score": clamp01(q * 0.35 + structure * 0.2 + (0.15 if external else 0.05)),
-        "profile_click_score": clamp01(q * 0.2 + 0.1),
-        "vqv_score": clamp01(q * 0.55 + 0.25) if has_video else 0.02,
-        "share_score": clamp01(q * 0.25 + media_score * 0.15),
-        "share_via_dm_score": clamp01(q * 0.18),
-        "share_via_copy_link_score": clamp01(q * 0.22),
-        "dwell_score": clamp01(q * 0.4 + length_score * 0.25 + structure * 0.2),
-        "quote_score": clamp01(q * 0.25 + conversation * 0.2),
-        "quoted_click_score": clamp01(q * 0.08),
-        "quoted_vqv_score": 0.02,
-        "dwell_time": clamp01(q * 0.35 + length_score * 0.25),
-        "click_dwell_time": clamp01(q * 0.25),
-        "follow_author_score": clamp01(q * 0.15 + conversation * 0.15),
-        "not_interested_score": clamp01(0.02 + spam * 0.35 + (0.04 if external else 0) + (1 - q) * 0.08),
-        "block_author_score": clamp01(0.01 + spam * 0.2),
-        "mute_author_score": clamp01(0.015 + spam * 0.22),
-        "report_score": clamp01(0.01 + spam * 0.35),
-        "not_dwelled_score": clamp01((1 - q) * 0.4 + (0.15 if chars < 20 else 0)),
+    media_pref = media / max(1, pos or n)
+    convo_pref = convo / max(1, pos or n)
+    if convo_pref >= 0.55 and media_pref < 0.45:
+        suggested = "conversation"
+    elif media_pref >= 0.55:
+        suggested = "media"
+    elif positive_rate > 0.6 and convo_pref < 0.4:
+        suggested = "viral"
+    else:
+        suggested = "balanced"
+
+    return {
+        "historyAffinity": affinity,
+        "positiveRate": positive_rate,
+        "negativeRate": negative_rate,
+        "mediaPreference": media_pref,
+        "conversationPreference": convo_pref,
+        "sampleSize": n,
+        "suggestedProfile": suggested,
+        "notes": [f"Calibrated from {n} items", f"Suggested profile: {suggested}"],
     }
-    scores["_meta"] = {
-        "mode": "sidecar-proxy",
-        "quality": q,
-        "note": "Sidecar proxy heads (set NARV_PHOENIX_MODE=jax for real Phoenix when artifacts available)",
-    }
-    return scores
-
-
-def try_jax_score(tweet: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
-    """Optional hook — returns None unless user wires real Phoenix artifacts."""
-    if MODE != "jax":
-        return None
-    # Placeholder: real integration would load phoenix/run_pipeline artifacts.
-    # We intentionally fall back so the sidecar always works out of the box.
-    return None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -161,7 +207,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def _json(self, code: int, payload: Dict[str, Any]) -> None:
-        body = json.dumps(payload).encode("utf-8")
+        body = json.dumps(payload, default=str).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -177,6 +223,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         if path == "/health":
+            art = detect_artifacts()
             self._json(
                 200,
                 {
@@ -184,17 +231,56 @@ class Handler(BaseHTTPRequestHandler):
                     "version": VERSION,
                     "mode": MODE,
                     "service": "narv-phoenix-sidecar",
+                    "artifacts": art,
+                    "jax_loaded": False,
+                    "endpoints": [
+                        "/health",
+                        "/v1/artifacts",
+                        "/v1/profiles",
+                        "/v1/score",
+                        "/v1/score_batch",
+                        "/v1/validate",
+                        "/v1/compare_profiles",
+                        "/v1/calibrate",
+                    ],
+                },
+            )
+            return
+        if path == "/v1/artifacts":
+            self._json(
+                200,
+                {
+                    "ok": True,
+                    "mode": MODE,
+                    "artifacts": detect_artifacts(),
+                    "jax": try_load_jax() if MODE == "jax" else {"ok": False, "skipped": True},
+                },
+            )
+            return
+        if path == "/v1/profiles":
+            self._json(
+                200,
+                {
+                    "ok": True,
+                    "profiles": [
+                        {"id": k, "weights": v.get("weights"), "params": v.get("params")}
+                        for k, v in PROFILES.items()
+                    ],
+                    "defaultWeights": DEFAULT_WEIGHTS,
                 },
             )
             return
         self._json(404, {"ok": False, "error": "not found"})
 
-    def do_POST(self) -> None:  # noqa: N802
-        path = urlparse(self.path).path
+    def _read_json(self) -> Dict[str, Any]:
         length = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(length) if length else b"{}"
+        return json.loads(raw.decode("utf-8") or "{}")
+
+    def do_POST(self) -> None:  # noqa: N802
+        path = urlparse(self.path).path
         try:
-            data = json.loads(raw.decode("utf-8") or "{}")
+            data = self._read_json()
         except json.JSONDecodeError:
             self._json(400, {"ok": False, "error": "invalid json"})
             return
@@ -202,17 +288,17 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/v1/score":
             tweet = data.get("tweet") or {}
             context = data.get("context") or {}
-            jax_scores = try_jax_score(tweet, context)
-            phoenix = jax_scores or proxy_phoenix_scores(tweet, context)
-            # strip private meta key from numeric map for consumers that iterate values
-            meta = phoenix.pop("_meta", {"mode": MODE})
+            history = data.get("history") or context.get("history") or []
+            mode = data.get("mode") or MODE
+            phoenix = engine_score(tweet, context, mode=mode, history=history)
+            scores, meta = strip_meta(phoenix)
             self._json(
                 200,
                 {
                     "ok": True,
-                    "phoenixScores": phoenix,
+                    "phoenixScores": scores,
                     "meta": meta,
-                    "mode": meta.get("mode", MODE),
+                    "mode": meta.get("mode", mode),
                 },
             )
             return
@@ -221,12 +307,93 @@ class Handler(BaseHTTPRequestHandler):
             tweets = data.get("tweets") or []
             options = data.get("options") or {}
             context = options.get("context") or data.get("context") or {}
+            mode = options.get("mode") or data.get("mode") or MODE
             results = []
             for tw in tweets:
-                phoenix = proxy_phoenix_scores(tw, context)
-                meta = phoenix.pop("_meta", {})
-                results.append({"tweetId": tw.get("tweetId"), "phoenixScores": phoenix, "meta": meta})
-            self._json(200, {"ok": True, "results": results, "mode": MODE})
+                phoenix = engine_score(tw, context, mode=mode)
+                scores, meta = strip_meta(phoenix)
+                results.append(
+                    {
+                        "tweetId": tw.get("tweetId") or tw.get("tweet_id"),
+                        "phoenixScores": scores,
+                        "meta": meta,
+                    }
+                )
+            self._json(200, {"ok": True, "results": results, "mode": mode})
+            return
+
+        if path == "/v1/validate":
+            tweet = data.get("tweet") or {}
+            context = data.get("context") or {}
+            profile_id = data.get("profileId") or context.get("profileId")
+            weights = merge_weights(profile_id, data.get("weights"))
+            params = merge_params(profile_id, data.get("params"))
+            mode = data.get("mode") or MODE
+            history = data.get("history") or []
+            phoenix = engine_score(tweet, context, mode=mode, history=history)
+            scores, meta = strip_meta(phoenix)
+            weighted = compute_weighted(scores, tweet, weights, params, context)
+            self._json(
+                200,
+                {
+                    "ok": True,
+                    "phoenixScores": scores,
+                    "meta": meta,
+                    "weighted": weighted,
+                    "finalScore": weighted["finalScore"],
+                    "grade": weighted["grade"],
+                    "profileId": profile_id or "balanced",
+                    "mode": meta.get("mode", mode),
+                },
+            )
+            return
+
+        if path == "/v1/compare_profiles":
+            tweet = data.get("tweet") or {}
+            context = data.get("context") or {}
+            profile_ids = data.get("profiles") or [
+                "balanced",
+                "conversation",
+                "media",
+                "news",
+                "viral",
+            ]
+            mode = data.get("mode") or MODE
+            phoenix = engine_score(tweet, context, mode=mode)
+            scores, meta = strip_meta(phoenix)
+            comparisons = []
+            for pid in profile_ids:
+                w = merge_weights(pid)
+                p = merge_params(pid)
+                weighted = compute_weighted(scores, tweet, w, p, context)
+                comparisons.append(
+                    {
+                        "profileId": pid,
+                        "finalScore": weighted["finalScore"],
+                        "grade": weighted["grade"],
+                        "raw": weighted["raw"],
+                        "topDrivers": weighted["rankedContributions"][:5],
+                    }
+                )
+            comparisons.sort(key=lambda x: x["finalScore"], reverse=True)
+            for i, c in enumerate(comparisons):
+                c["rank"] = i + 1
+            self._json(
+                200,
+                {
+                    "ok": True,
+                    "phoenixScores": scores,
+                    "meta": meta,
+                    "comparisons": comparisons,
+                    "winner": comparisons[0]["profileId"] if comparisons else None,
+                },
+            )
+            return
+
+        if path == "/v1/calibrate":
+            history = data.get("history") or data.get("engagements") or data
+            result = calibrate_affinity(history)
+            self._json(200, {"ok": True, **result})
             return
 
         self._json(404, {"ok": False, "error": "not found"})
@@ -236,8 +403,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    if MODE == "jax":
+        status = try_load_jax()
+        print(f"JAX init: {status.get('ok')} {status.get('error') or ''}", flush=True)
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"NARV Phoenix sidecar listening on http://{HOST}:{PORT}  mode={MODE}", flush=True)
+    print(
+        f"NARV Phoenix sidecar v{VERSION} on http://{HOST}:{PORT}  mode={MODE}",
+        flush=True,
+    )
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
