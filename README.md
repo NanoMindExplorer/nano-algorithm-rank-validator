@@ -136,6 +136,7 @@ Kanan bawah di x.com → buka side panel.
 | **A/B profiles** | Bandingkan profil bobot |
 | **Draft** | Skor sebelum post |
 | **Sample hist** | Riwayat engagement + kalibrasi |
+| **Shadowban** | Cek restriksi visibilitas + tips pemulihan |
 | Tab **Report** | Ringkasan, grade, insights |
 | Tab **19 Signals** | Probabilitas & kontribusi bobot |
 | Tab **Filters** | Status filter pipeline |
