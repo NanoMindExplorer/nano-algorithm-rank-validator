@@ -78,6 +78,9 @@ document.getElementById("btn-compare")?.addEventListener("click", () => {
 document.getElementById("btn-sample")?.addEventListener("click", () => {
   send("NARV_SAMPLE");
 });
+document.getElementById("btn-shadowban")?.addEventListener("click", () => {
+  send("NARV_SHADOWBAN");
+});
 document.getElementById("btn-open")?.addEventListener("click", () => {
   send("NARV_OPEN_PANEL");
 });

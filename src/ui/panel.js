@@ -126,6 +126,7 @@
           <button class="narv-btn narv-btn-secondary" id="narv-compare" type="button">A/B profiles</button>
           <button class="narv-btn narv-btn-ghost" id="narv-draft" type="button">Draft</button>
           <button class="narv-btn narv-btn-ghost" id="narv-sample" type="button">Sample hist</button>
+          <button class="narv-btn narv-btn-secondary" id="narv-shadowban" type="button">Shadowban</button>
         </div>
         <div class="narv-tabs" id="narv-tabs">
           <button class="narv-tab active" data-tab="report" type="button">Report</button>
@@ -164,6 +165,9 @@
     rootEl
       .querySelector("#narv-sample")
       .addEventListener("click", () => withFollowGate(sampleHistoryUI));
+    rootEl
+      .querySelector("#narv-shadowban")
+      .addEventListener("click", () => withFollowGate(shadowbanUI));
 
     rootEl.querySelectorAll(".narv-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -610,6 +614,179 @@
     });
   }
 
+  async function shadowbanUI() {
+    openPanel();
+    if (!(await refreshFollowGate({ force: false }))) return;
+
+    const defaultHandle =
+      (root.NARVShadowban && root.NARVShadowban.resolveTargetHandle()) ||
+      "";
+
+    bodyEl.innerHTML = `
+      <div class="narv-card">
+        <div class="narv-card-h">Shadowban / visibility check</div>
+        <div class="narv-card-b">
+          <p class="narv-muted" style="margin-top:0">
+            Cek sinyal <strong>Search Suggestion Ban</strong>, <strong>Search Ban</strong>,
+            <strong>Ghost/Reply hide</strong> (heuristik), flag profil, dan risiko perilaku.
+            Wajib login di x.com. Hasil bukan status moderasi resmi X.
+          </p>
+          <label class="narv-label">Username (kosongkan = profil / akun aktif)</label>
+          <input id="narv-sb-handle" class="narv-input" type="text" placeholder="@username" value="${esc(defaultHandle ? "@" + defaultHandle : "")}" />
+          <button class="narv-btn narv-btn-primary" id="narv-sb-run" type="button" style="width:100%">Jalankan cek shadowban</button>
+        </div>
+      </div>
+      <div id="narv-sb-result"></div>
+    `;
+
+    bodyEl.querySelector("#narv-sb-run")?.addEventListener("click", async () => {
+      const raw = bodyEl.querySelector("#narv-sb-handle")?.value || "";
+      const out = bodyEl.querySelector("#narv-sb-result");
+      if (!root.NARVShadowban) {
+        out.innerHTML = `<div class="narv-empty">Modul shadowban tidak termuat — reload extension.</div>`;
+        return;
+      }
+      out.innerHTML = `<div class="narv-empty">Menjalankan cek (search / typeahead / timeline)…</div>`;
+      try {
+        const report = await root.NARVShadowban.checkShadowban(raw);
+        renderShadowbanReport(out, report);
+      } catch (e) {
+        out.innerHTML = `<div class="narv-empty">Error: ${esc(e.message || e)}</div>`;
+      }
+    });
+  }
+
+  function renderShadowbanReport(container, report) {
+    if (!report.ok) {
+      container.innerHTML = `
+        <div class="narv-card">
+          <div class="narv-card-b">
+            <p style="color:var(--narv-red);font-weight:700">${esc(report.error || "Gagal")}</p>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const o = report.overall || {};
+    const checks = report.checks || [];
+    const rec = report.recovery || { general: [], specific: [], manualTests: [] };
+
+    const statusDot = (c) => {
+      if (c.status === "clear") return "pass";
+      if (c.status === "flagged") return "fail";
+      if (c.status === "warn" || c.status === "partial") return "soft";
+      return "unk";
+    };
+
+    container.innerHTML = `
+      <div class="narv-score-hero" style="--pct:${Math.max(5, 100 - (o.score || 0) * 22)};--ring-color:${esc(o.color || "#1d9bf0")}">
+        <div class="narv-score-ring">
+          <div class="narv-score-ring-inner">
+            <div class="num" style="font-size:14px">${esc(o.label || "?")}</div>
+          </div>
+        </div>
+        <div class="narv-score-meta">
+          <h2>@${esc(report.handle)}</h2>
+          <p>${report.user ? `${esc(report.user.name || "")} · ${report.user.followers ?? "?"} followers · ${report.timelineSample || 0} timeline samples` : "—"}</p>
+          <div class="narv-badge-row">
+            <span class="narv-badge ${o.level >= 3 ? "fail" : o.level >= 2 ? "warn" : "ok"}">${esc(o.label || "")}</span>
+            <span class="narv-badge">${report.elapsedMs || 0} ms</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="narv-card">
+        <div class="narv-card-h">Hasil cek</div>
+        <div class="narv-card-b">
+          ${checks
+            .map(
+              (c) => `
+            <div class="narv-filter-item">
+              <div class="narv-dot ${statusDot(c)}"></div>
+              <div>
+                <div style="font-weight:700">${esc(c.title)} <span class="narv-muted">${esc(c.severity || "")} · ${esc(c.status || "")}</span></div>
+                <div class="narv-muted">${esc(c.detail || "")}</div>
+                ${
+                  c.risks && c.risks.length
+                    ? `<ul class="narv-list risks">${c.risks.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>`
+                    : ""
+                }
+              </div>
+            </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+
+      ${
+        rec.specific && rec.specific.length
+          ? `<div class="narv-card">
+        <div class="narv-card-h">Pemulihan khusus temuanmu</div>
+        <div class="narv-card-b">
+          ${rec.specific
+            .map(
+              (t) => `
+            <div style="margin-bottom:10px">
+              <div style="font-weight:700;font-size:12px">${esc(t.title)}</div>
+              <div class="narv-muted">${esc(t.body)}</div>
+            </div>`
+            )
+            .join("")}
+        </div>
+      </div>`
+          : ""
+      }
+
+      <div class="narv-card">
+        <div class="narv-card-h">Cara menanggulangi / mengobati shadowban</div>
+        <div class="narv-card-b">
+          ${rec.general
+            .map(
+              (t, i) => `
+            <div style="margin-bottom:10px">
+              <div style="font-weight:700;font-size:12px">${i + 1}. ${esc(t.title)}</div>
+              <div class="narv-muted">${esc(t.body)}</div>
+            </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+
+      <div class="narv-card">
+        <div class="narv-card-h">Uji manual (disarankan)</div>
+        <div class="narv-card-b">
+          ${rec.manualTests
+            .map(
+              (t) => `
+            <div style="margin-bottom:10px">
+              <div style="font-weight:700;font-size:12px">${esc(t.title)}</div>
+              <div class="narv-muted">${esc(t.body)}</div>
+            </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+
+      <div class="narv-card">
+        <div class="narv-card-b" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="narv-btn narv-btn-secondary" id="narv-sb-export" type="button">Export JSON</button>
+        </div>
+      </div>
+      <p class="narv-disclaimer">${esc(report.disclaimer || "")}</p>
+    `;
+
+    container.querySelector("#narv-sb-export")?.addEventListener("click", () => {
+      if (root.NARVExport) {
+        root.NARVExport.downloadText(
+          `narv-shadowban-${report.handle}-${Date.now()}.json`,
+          JSON.stringify(report, null, 2),
+          "application/json"
+        );
+        flash("Shadowban report exported");
+      }
+    });
+  }
+
   async function scoreDraft() {
     openPanel();
     if (!(await refreshFollowGate({ force: false }))) return;
@@ -966,6 +1143,7 @@
     compareProfiles,
     sampleHistoryUI,
     scanTimeline,
+    shadowbanUI,
     refreshFollowGate,
   };
 

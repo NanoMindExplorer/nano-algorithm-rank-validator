@@ -14,6 +14,7 @@ Dokumentasi **pembangunan**, arsitektur, riset, dan integrasi.
 | [Sidecar](Sidecar) | Server Python lokal (API & mode) |
 | [Research](Research) | Riset open-source x-algorithm |
 | [Contributing](Contributing) | Kontribusi & struktur repo |
+| [Shadowban](Shadowban) | Cek shadowban & recovery tips (dev) |
 
 ## Tautan cepat
 

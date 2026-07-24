@@ -11,3 +11,4 @@
 ---
 
 [📘 README pemakaian](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator#readme)
+- [[Shadowban]]

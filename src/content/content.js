@@ -137,11 +137,15 @@
           gated(() => NARVPanel.sampleHistoryUI?.()).then(sendResponse);
           return true;
         }
+        if (msg.type === "NARV_SHADOWBAN") {
+          gated(() => NARVPanel.shadowbanUI?.()).then(sendResponse);
+          return true;
+        }
         if (msg.type === "NARV_PING") {
           sendResponse({
             ok: true,
             url: location.href,
-            version: "1.3.0",
+            version: "1.4.0",
           });
         }
       });
@@ -150,7 +154,7 @@
     }
 
     console.info(
-      "[NARV] v1.3 ready — follow @Deadmouse_jpeg required · Alt+Shift+N"
+      "[NARV] v1.4 ready — shadowban check · follow @Deadmouse_jpeg · Alt+Shift+N"
     );
   }
 

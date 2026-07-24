@@ -4,7 +4,7 @@ Ekstensi Chrome untuk **memvalidasi dan merangking post di X (Twitter)** — seb
 
 | | |
 |---|---|
-| **Versi** | 1.3.1 |
+| **Versi** | 1.4.0 |
 | **Creator** | [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) |
 | **Repo** | https://github.com/NanoMindExplorer/nano-algorithm-rank-validator |
 | **Lisensi** | MIT |
@@ -35,17 +35,19 @@ Jika terkunci, panel/popup menampilkan **Follow required** + tombol ke profil + 
 5. [Skor draf sebelum post](#5-skor-draf-sebelum-post)
 6. [Validasi tweet yang sudah ada](#6-validasi-tweet-yang-sudah-ada)
 7. [Scan timeline](#7-scan-timeline)
-8. [Membaca laporan skor](#8-membaca-laporan-skor)
-9. [A/B profil bobot](#9-ab-profil-bobot)
-10. [Pengaturan (Options)](#10-pengaturan-options)
-11. [Affinity & sampler riwayat](#11-affinity--sampler-riwayat)
-12. [Sidecar opsional](#12-sidecar-opsional)
-13. [Ekspor](#13-ekspor)
-14. [Shortcut keyboard](#14-shortcut-keyboard)
-15. [Alur kerja yang disarankan](#15-alur-kerja-yang-disarankan)
-16. [FAQ](#16-faq)
-17. [Privasi](#17-privasi)
-18. [Pengembang](#18-pengembang)
+8. [Cek shadowban / visibilitas akun](#8-cek-shadowban--visibilitas-akun)
+9. [Tips pemulihan shadowban](#9-tips-pemulihan-shadowban)
+10. [Membaca laporan skor](#10-membaca-laporan-skor)
+11. [A/B profil bobot](#11-ab-profil-bobot)
+12. [Pengaturan (Options)](#12-pengaturan-options)
+13. [Affinity & sampler riwayat](#13-affinity--sampler-riwayat)
+14. [Sidecar opsional](#14-sidecar-opsional)
+15. [Ekspor](#15-ekspor)
+16. [Shortcut keyboard](#16-shortcut-keyboard)
+17. [Alur kerja yang disarankan](#17-alur-kerja-yang-disarankan)
+18. [FAQ](#18-faq)
+19. [Privasi](#19-privasi)
+20. [Pengembang](#20-pengembang)
 
 ---
 
@@ -60,6 +62,7 @@ Jika terkunci, panel/popup menampilkan **Follow required** + tombol ke profil + 
 | **19 Signals** | Breakdown P(action) + kontribusi weighted |
 | **Filters** | Checklist Age, VF soft, muted keyword, link, dll. |
 | **Sampler (+HIST)** | Kumpulkan riwayat engagement untuk affinity |
+| **Shadowban check** | Search ban, suggestion ban, ghost/reply hide, risiko perilaku + tips sembuh |
 | **Export CSV/JSON** | Simpan scan & laporan |
 | **Sidecar lokal** | Engine hash Python di `127.0.0.1:8787` (opsional) |
 
@@ -197,7 +200,77 @@ Data dari DOM (jika ada): teks, handle, verified, counts, media, umur (Snowflake
 
 ---
 
-## 8. Membaca laporan skor
+## 8. Cek shadowban / visibilitas akun
+
+“Shadowban” **bukan** nama fitur resmi X. Di praktik komunitas & tools, yang dicek biasanya:
+
+| Jenis | Arti praktis |
+|--------|----------------|
+| **Search Suggestion Ban** | Handle tidak muncul di saran pencarian (typeahead / People) |
+| **Search Ban** | Tweet tidak muncul di search `from:username` (meski ada di profil) |
+| **Ghost Ban** | Reply “hilang” bagi non-follower / sulit terlihat di thread |
+| **Reply deboost** | Reply masuk di balik “Show more replies” (sering perlu uji manual) |
+| **Quality / behavior filter** | Reach turun karena pola spam, link, burst post, graf follow, dll. |
+
+### Cara pakai di NARV
+
+1. Unlock tools (follow / owner)  
+2. Panel → **Shadowban** (atau popup → **Shadowban check**)  
+3. Isi `@username` — atau kosongkan untuk profil yang sedang dibuka / akun aktif  
+4. **Jalankan cek shadowban**  
+5. Baca hasil per sinyal + tips pemulihan  
+6. Opsional **Export JSON**
+
+### Apa yang diuji otomatis (sesi login x.com)
+
+1. **Profil** — ada / suspended / protected / withheld  
+2. **Typeahead** — apakah `@user` muncul di saran search  
+3. **Search `from:user`** — apakah ID tweet terbaru dari timeline muncul di hasil search  
+4. **Heuristik ghost** — reply di timeline vs search `from:user filter:replies`  
+5. **Behavioral risk** — rasio follow, burst posting, link/spam language, avatar default  
+
+> Ghost ban & reply deboost paling akurat dikonfirmasi **manual** (akun non-follower / incognito). NARV memberi sinyal + panduan uji manual.
+
+---
+
+## 9. Tips pemulihan shadowban
+
+NARV menampilkan tips **dinamis** sesuai temuan. Ringkasan praktik terbaik:
+
+### Umum (lakukan dulu)
+
+1. **Cooling 48–72 jam** — stop automation, mass like/RT/follow, burst posting.  
+2. **Bersihkan konten** — hapus post yang di-report, spam, media sensitif, copy-paste massal.  
+3. **Rapikan graf** — jangan buy followers; unfol bot perlahan; hentikan follow/unfollow massal.  
+4. **Konten orisinal** — kurangi link di body (taruh di reply); balas manusiawi ke mutual.  
+5. **Keamanan** — lengkapi avatar/bio, 2FA, cabut app pihak ketiga mencurigakan.  
+6. **Appeal resmi** hanya jika X memberi notifikasi locked/limited — ikuti alur in-app/email.
+
+### Khusus Search / Suggestion Ban
+
+- Cool-down 72 jam tanpa hashtag stuffing & reply spam.  
+- Lalu 3–5 post orisinal **tanpa link**, interaksi pelan.  
+- Cek harian: search `from:yourhandle` + ketik handle di kotak search.
+
+### Khusus Ghost / reply hide
+
+- Hentikan reply massal 3–7 hari.  
+- Reply hanya thread relevan, teks berbeda (bukan template).  
+- Uji: dari akun non-follower, apakah reply kamu terlihat / di balik “Show more”.
+
+### Uji manual (wajib untuk konfirmasi)
+
+| Uji | Cara |
+|-----|------|
+| Search | Incognito / logout → `from:handle` + cuplikan teks tweet |
+| Suggestion | Ketik handle di search box → cek daftar People |
+| Reply | Akun non-follower buka thread yang kamu balas |
+
+**Jangan:** bikin banyak akun baru, spam appeal, atau “engagement pods” — sering memperparah filter.
+
+---
+
+## 10. Membaca laporan skor
 
 ### Hero
 
@@ -226,7 +299,7 @@ Data dari DOM (jika ada): teks, handle, verified, counts, media, umur (Snowflake
 
 ---
 
-## 9. A/B profil bobot
+## 11. A/B profil bobot
 
 Skor **tweet yang sama** dengan set bobot berbeda.
 
@@ -243,7 +316,7 @@ Skor **tweet yang sama** dengan set bobot berbeda.
 
 ---
 
-## 10. Pengaturan (Options)
+## 12. Pengaturan (Options)
 
 | Bagian | Isi |
 |--------|-----|
@@ -270,7 +343,7 @@ File contoh: [`test/sample-history.json`](./test/sample-history.json).
 
 ---
 
-## 11. Affinity & sampler riwayat
+## 13. Affinity & sampler riwayat
 
 | Cara | Langkah |
 |------|---------|
@@ -283,7 +356,7 @@ Data sample: `chrome.storage.local`.
 
 ---
 
-## 12. Sidecar opsional
+## 14. Sidecar opsional
 
 Tanpa sidecar: P(action) dihitung di browser (proxy).  
 Dengan sidecar: heads dihitung di Python lokal (default **hash**).
@@ -300,7 +373,7 @@ Detail API: [wiki/Sidecar.md](./wiki/Sidecar.md).
 
 ---
 
-## 13. Ekspor
+## 15. Ekspor
 
 | Data | Cara |
 |------|------|
@@ -311,7 +384,7 @@ Detail API: [wiki/Sidecar.md](./wiki/Sidecar.md).
 
 ---
 
-## 14. Shortcut keyboard
+## 16. Shortcut keyboard
 
 Di **x.com** (setelah unlock):
 
@@ -323,7 +396,7 @@ Di **x.com** (setelah unlock):
 
 ---
 
-## 15. Alur kerja yang disarankan
+## 17. Alur kerja yang disarankan
 
 ### Creator (sebelum post)
 
@@ -342,9 +415,16 @@ Follow @Deadmouse_jpeg (atau login sebagai owner)
 Unlock → Scan timeline → Export CSV → buka post top → 19 Signals
 ```
 
+### Cek kesehatan akun
+
+```
+Unlock → Shadowban check (@handle) → baca temuan
+→ terapkan tips pemulihan → uji manual → cek ulang 48–72 jam
+```
+
 ---
 
-## 16. FAQ
+## 18. FAQ
 
 **Apakah skor = ranking resmi X?**  
 Tidak. Production memakai model Phoenix + history viewer + bobot privat. NARV meniru struktur open-source dengan estimasi yang bisa diaudit.
@@ -364,20 +444,26 @@ Di proxy, sering menekan skor; soft warning di filters.
 **Extension tidak muncul?**  
 Refresh x.com · Load unpacked ke folder yang benar · pastikan aktif di `chrome://extensions`.
 
+**Shadowban check gagal / unknown?**  
+Login di tab x.com, pastikan API search tidak di-rate-limit, coba lagi nanti. Gunakan juga uji manual di §9.
+
+**Apakah “Clear” = 100% aman dari shadowban?**  
+Tidak. Hanya sinyal yang bisa diukur otomatis. Reply deboost & eksperimen For You bisa tetap membatasi reach.
+
 ---
 
-## 17. Privasi
+## 19. Privasi
 
 - Berjalan lokal di browser pada domain X  
 - Tidak ada backend analytics bawaan NARV  
 - Preferensi: `chrome.storage.sync`  
 - Sample engagement: `chrome.storage.local` (bisa di-clear)  
-- Cek follow memakai sesi X yang sudah login di tab (API web X)  
+- Cek follow & shadowban memakai **sesi X yang sudah login** di tab (API web X)  
 - Sidecar hanya listen localhost  
 
 ---
 
-## 18. Pengembang
+## 20. Pengembang
 
 Dokumentasi build, arsitektur, API, dan riset:
 
