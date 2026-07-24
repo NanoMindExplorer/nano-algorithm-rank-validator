@@ -1,51 +1,69 @@
 # Nano Algorithm Rank Validator (NARV)
 
-Ekstensi Chrome untuk **memvalidasi dan merangking post X (Twitter)** sebelum atau sesudah dipublikasikan, berdasarkan struktur algoritma open-source **For You** dari [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm).
+Ekstensi Chrome untuk **memvalidasi dan merangking post di X (Twitter)** — sebelum atau sesudah dipublikasikan — berdasarkan struktur open-source algoritma **For You** dari [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm).
 
-**Versi:** 1.3.0 · **Creator:** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) · **Lisensi:** MIT  
-**Wiki:** [folder `wiki/`](./wiki/Home.md) · [GitHub Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki)
+| | |
+|---|---|
+| **Versi** | 1.3.1 |
+| **Creator** | [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) |
+| **Repo** | https://github.com/NanoMindExplorer/nano-algorithm-rank-validator |
+| **Lisensi** | MIT |
+| **Wiki dev/riset** | [wiki/](./wiki/Home.md) · [GitHub Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki) |
 
-> ⚠️ **Syarat pakai:** kamu **wajib follow** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) di X. Jika belum follow, tools terkunci (panel & popup menampilkan layar unlock).  
-> **Pemilik akun** `@Deadmouse_jpeg` otomatis terbuka (X tidak mengizinkan follow diri sendiri).
+---
 
-> Skor yang ditampilkan adalah **simulasi transparan** (proxy / sidecar hash) yang mengikuti *formula dan pipeline publik* algoritma X — **bukan** skor production Phoenix resmi di server X.
+## Syarat akses (penting)
+
+Tools **terkunci** sampai salah satu kondisi ini terpenuhi:
+
+| Pengguna | Syarat |
+|----------|--------|
+| **Semua orang** | Login di x.com **dan** **follow** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) |
+| **Pemilik** `@Deadmouse_jpeg` | Cukup **login** sebagai akun itu — **otomatis unlock** (X tidak mengizinkan follow diri sendiri) |
+
+Jika terkunci, panel/popup menampilkan **Follow required** + tombol ke profil + **Saya sudah follow — cek ulang**.
+
+> Skor di NARV adalah **simulasi transparan** (proxy browser / sidecar hash) yang mengikuti *formula & pipeline publik* algoritma X. **Bukan** skor production Phoenix resmi di server X.
 
 ---
 
 ## Daftar isi
 
-1. [Apa yang bisa dilakukan](#1-apa-yang-bisa-dilakukan)
+1. [Fitur](#1-fitur)
 2. [Instalasi](#2-instalasi)
-3. [Antarmuka singkat](#3-antarmuka-singkat)
-4. [Skor draf sebelum post (paling penting)](#4-skor-draf-sebelum-post-paling-penting)
-5. [Validasi tweet yang sudah ada](#5-validasi-tweet-yang-sudah-ada)
-6. [Scan & ranking timeline](#6-scan--ranking-timeline)
-7. [Membaca laporan skor](#7-membaca-laporan-skor)
-8. [A/B bandingkan profil bobot](#8-ab-bandingkan-profil-bobot)
-9. [Pengaturan (Options)](#9-pengaturan-options)
-10. [Kalibrasi affinity & sampler riwayat](#10-kalibrasi-affinity--sampler-riwayat)
-11. [Sidecar opsional (lebih konsisten)](#11-sidecar-opsional-lebih-konsisten)
-12. [Ekspor data](#12-ekspor-data)
-13. [Shortcut keyboard](#13-shortcut-keyboard)
-14. [Alur kerja yang disarankan](#14-alur-kerja-yang-disarankan)
-15. [FAQ & batasan](#15-faq--batasan)
-16. [Privasi](#16-privasi)
-17. [Bantuan pengembang](#17-bantuan-pengembang)
+3. [Unlock akses (follow / owner)](#3-unlock-akses-follow--owner)
+4. [Antarmuka](#4-antarmuka)
+5. [Skor draf sebelum post](#5-skor-draf-sebelum-post)
+6. [Validasi tweet yang sudah ada](#6-validasi-tweet-yang-sudah-ada)
+7. [Scan timeline](#7-scan-timeline)
+8. [Membaca laporan skor](#8-membaca-laporan-skor)
+9. [A/B profil bobot](#9-ab-profil-bobot)
+10. [Pengaturan (Options)](#10-pengaturan-options)
+11. [Affinity & sampler riwayat](#11-affinity--sampler-riwayat)
+12. [Sidecar opsional](#12-sidecar-opsional)
+13. [Ekspor](#13-ekspor)
+14. [Shortcut keyboard](#14-shortcut-keyboard)
+15. [Alur kerja yang disarankan](#15-alur-kerja-yang-disarankan)
+16. [FAQ](#16-faq)
+17. [Privasi](#17-privasi)
+18. [Pengembang](#18-pengembang)
 
 ---
 
-## 1. Apa yang bisa dilakukan
+## 1. Fitur
 
-| Fitur | Kapan dipakai |
-|--------|----------------|
-| **Follow gate** | Unlock tools (wajib follow @Deadmouse_jpeg) |
-| **Draft scorer** | Mengetes teks *sebelum* di-post |
-| **Validate tweet** | Menganalisis post yang sudah live / milik orang lain |
-| **Scan timeline** | Membandingkan banyak post di feed |
-| **A/B profiles** | Melihat profil bobot mana yang “menghargai” konten Anda |
-| **+HIST / sampler** | Mengumpulkan riwayat engagement untuk kalibrasi |
-| **Export CSV/JSON** | Menyimpan hasil scan / laporan |
-| **Sidecar lokal** | Menjalankan engine hash di Python (opsional) |
+| Fitur | Kegunaan |
+|--------|----------|
+| **Follow gate** | Wajib follow `@Deadmouse_jpeg` (owner auto-unlock) |
+| **Draft scorer** | Tes teks **sebelum** di-post |
+| **Validate** | Analisis tweet live / status page |
+| **Scan timeline** | Ranking banyak post yang terlihat di feed |
+| **A/B profiles** | Bandingkan bobot conversation / media / viral / dll. |
+| **19 Signals** | Breakdown P(action) + kontribusi weighted |
+| **Filters** | Checklist Age, VF soft, muted keyword, link, dll. |
+| **Sampler (+HIST)** | Kumpulkan riwayat engagement untuk affinity |
+| **Export CSV/JSON** | Simpan scan & laporan |
+| **Sidecar lokal** | Engine hash Python di `127.0.0.1:8787` (opsional) |
 
 ---
 
@@ -53,482 +71,342 @@ Ekstensi Chrome untuk **memvalidasi dan merangking post X (Twitter)** sebelum at
 
 ### Syarat
 
-- Google Chrome atau Chromium (Manifest V3)
-- Akun X yang **sudah login** di browser
-- **Follow** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) (wajib)
+- Google Chrome / Chromium (Manifest V3)
+- Akun X **login** di browser yang sama
+- Follow [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) — kecuali kamu login sebagai akun itu
 
 ### Langkah
 
-1. Follow dulu: https://x.com/Deadmouse_jpeg  
-2. Unduh atau clone repositori:
+1. **Follow** (jika bukan owner): https://x.com/Deadmouse_jpeg  
+2. Clone atau unduh repo:
    ```bash
    git clone https://github.com/NanoMindExplorer/nano-algorithm-rank-validator.git
    ```
-3. Buka Chrome → alamat `chrome://extensions`
-4. Aktifkan **Developer mode** (kanan atas)
-5. Klik **Load unpacked**
-6. Pilih folder project yang berisi file `manifest.json`
-7. Pastikan ekstensi **Nano Algorithm Rank Validator** aktif
-8. Buka [https://x.com](https://x.com) (login), **refresh** halaman
+3. Buka `chrome://extensions`
+4. Aktifkan **Developer mode**
+5. **Load unpacked** → pilih folder yang berisi `manifest.json`
+6. Pastikan **Nano Algorithm Rank Validator** aktif
+7. Buka [x.com](https://x.com), **refresh** halaman
 
 ### Verifikasi
 
-- Ikon baru (mouse + Δ neon) muncul di toolbar Chrome  
-- Di pojok kanan bawah x.com muncul tombol **NΔ**  
-- Buka panel / popup → jika belum follow, layar **Follow required**  
-- Setelah follow: klik **Saya sudah follow — cek ulang** → tools terbuka  
+- Ikon toolbar: brand mark mouse + Δ (neon)
+- Tombol floating **NΔ** di kanan bawah x.com
+- Hover tweet → **NΔ RANK**
+- Popup / panel: status unlocked setelah follow (atau owner)
 
-Jika tombol tidak muncul: refresh x.com, pastikan ekstensi aktif untuk situs itu.
+**Update versi:** di `chrome://extensions` klik **Reload**, lalu refresh x.com.
 
 ---
 
-## 3. Antarmuka singkat
+## 3. Unlock akses (follow / owner)
 
-### A. Floating button (NΔ)
+### Pengguna umum
 
-Di halaman x.com, kanan bawah. Membuka **side panel** validator.
+1. Login di x.com  
+2. Buka https://x.com/Deadmouse_jpeg → **Follow**  
+3. Buka panel NARV atau popup  
+4. Jika masih terkunci → **Saya sudah follow — cek ulang**  
+5. Tools terbuka (hasil positif di-cache ±15 menit)
 
-### B. Side panel
+### Pemilik `@Deadmouse_jpeg`
 
-Panel kanan berisi:
+1. Login di Chrome **sebagai** `@Deadmouse_jpeg`  
+2. Reload extension + refresh x.com  
+3. Buka panel → **otomatis unlock** (mode pemilik)  
+4. Tidak perlu (dan tidak bisa) follow diri sendiri  
+
+Verifikasi identitas memakai sesi X di tab (API `verify_credentials` / deteksi handle). Pastikan tab tidak memakai akun lain di account switcher.
+
+---
+
+## 4. Antarmuka
+
+### Floating button (NΔ)
+
+Kanan bawah di x.com → buka side panel.
+
+### Side panel
 
 | Kontrol | Fungsi |
 |---------|--------|
-| **Validate** | Skor tweet di halaman status / kartu utama |
-| **Scan** | Skor semua tweet yang terlihat di timeline |
-| **A/B profiles** | Bandingkan satu tweet di banyak profil bobot |
-| **Draft** | Skor teks *sebelum* post |
-| **Sample hist** | Kelola riwayat engagement untuk affinity |
-| Tab **Report** | Ringkasan skor & insights |
-| Tab **19 Signals** | Probabilitas tiap aksi + kontribusi bobot |
-| Tab **Filters** | Lolos/gagal filter pipeline |
+| **Validate** | Skor tweet halaman / kartu utama |
+| **Scan** | Skor semua tweet terlihat di timeline |
+| **A/B profiles** | Bandingkan profil bobot |
+| **Draft** | Skor sebelum post |
+| **Sample hist** | Riwayat engagement + kalibrasi |
+| Tab **Report** | Ringkasan, grade, insights |
+| Tab **19 Signals** | Probabilitas & kontribusi bobot |
+| Tab **Filters** | Status filter pipeline |
 | Tab **Pipeline** | Jejak tahap scoring |
-| **⧉** (header) | Salin laporan JSON |
-| **✕** | Tutup panel |
+| **⧉** | Salin laporan JSON |
+| **✕** | Tutup |
 
-### C. Tombol di kartu tweet
+### Tombol di kartu tweet
 
-| Tombol | Muncul saat | Fungsi |
-|--------|-------------|--------|
-| **NΔ RANK** | Hover tweet | Validasi tweet itu |
-| **+HIST** | Hover (jika diaktifkan di Options) | Tambah ke riwayat “liked sample” |
+| Tombol | Fungsi |
+|--------|--------|
+| **NΔ RANK** | Validasi tweet itu (butuh unlock) |
+| **+HIST** | Tambah ke sample history (jika diaktifkan di Options & sudah unlock) |
 
-### D. Popup toolbar Chrome
+### Popup Chrome
 
-Klik ikon ekstensi:
+Validate · Scan · A/B · Sampler · Open panel · Settings  
+Popup juga menampilkan layar follow gate jika terkunci.
 
-- Validate active tweet  
-- Scan visible timeline  
-- A/B profile compare  
-- Engagement sampler  
-- Open side panel  
-- All settings (Options)
+### Options
 
-### E. Halaman Options
-
-Klik kanan ikon ekstensi → **Options**, atau dari popup **All settings**.  
-Di sini Anda mengatur profil bobot, affinity, sidecar, dan sampler.
+Profil bobot, affinity, muted keywords, sidecar, auto-sampler.  
+Buka dari popup **All settings** atau detail ekstensi.
 
 ---
 
-## 4. Skor draf sebelum post (paling penting)
+## 5. Skor draf sebelum post
 
-Fitur ini untuk **mengetes ranking potensial sebelum Anda menekan Post**.
+1. Tulis di compose X (opsional)  
+2. **NΔ** → **Draft**  
+3. Edit teks di textarea NARV (otomatis terisi dari compose jika terdeteksi)  
+4. Pilih **Media**: None / Image / Video (>5s) / Poll  
+5. Pilih **Format**: Single / Thread / Reply / Quote  
+6. **Score draft**  
+7. Baca Report + 19 Signals + tips  
 
-### Langkah demi langkah
+Draf belum punya likes/views nyata — skor mengandalkan konten, media, format, profil bobot, dan affinity.
 
-1. Buka x.com → klik **Post** / compose (boleh tulis dulu di kotak tulis X).
-2. Klik **NΔ** (atau popup → Open side panel).
-3. Klik **Draft**.
-4. Area teks:
-   - Otomatis terisi dari compose box X jika terdeteksi, **atau**
-   - Tempel / ketik manual di textarea NARV.
-5. Atur **Media** (simulasi lampiran):
-   - None  
-   - Image / GIF  
-   - Video (>5s) — mengaktifkan bobot VQV  
-   - Poll  
-6. Atur **Format**:
-   - Single post  
-   - Thread  
-   - Reply  
-   - Quote  
-7. Klik **Score draft**.
-8. Baca tab **Report**, **19 Signals**, **Filters**, **Pipeline**.
-
-### Apa yang dihitung pada draf?
-
-Karena post **belum live**, tidak ada likes/views nyata. Skor mengandalkan:
-
-- Isi teks (pertanyaan, CTA, panjang, struktur baris)
-- Sinyal spam / teriakan ALL CAPS
-- Link eksternal
-- Media & format yang Anda pilih
-- Profil bobot aktif + affinity Anda
-
-### Tips memakai Draft scorer
-
-| Tujuan | Yang dicoba di draf |
-|--------|---------------------|
-| Naikkan peluang reply | Pertanyaan jujur, CTA, spasi baris, thread |
-| Media / video | Pilih Video >5s atau Image di form Draft |
-| Hindari penalti | Kurangi spam words, ALL CAPS, link di body |
-| Bandingkan 2 versi | Skor versi A → ubah teks → skor lagi → bandingkan grade |
-
-### Alur disarankan sebelum post
-
-```
-Tulis draf → Draft scorer → perbaiki tips merah/oranye
-→ A/B profiles (opsional) → pilih sudut konten
-→ Post di X → Validate lagi setelah ada views (opsional)
-```
+**Tips:** pertanyaan/CTA untuk reply · media untuk VQV/photo · hindari spam/ALL CAPS · link eksternal sering menekan skor proxy.
 
 ---
 
-## 5. Validasi tweet yang sudah ada
+## 6. Validasi tweet yang sudah ada
 
-### Dari halaman status
+| Cara | Langkah |
+|------|---------|
+| Status URL | Buka post → **Validate** atau `Alt+Shift+N` |
+| Timeline | Hover → **NΔ RANK** |
+| Popup | Tab x.com aktif → **Validate active tweet** |
 
-1. Buka URL post, contoh: `https://x.com/username/status/123…`
-2. **NΔ** → **Validate**, atau `Alt+Shift+N`
-3. Laporan muncul di panel
-
-### Dari timeline / feed
-
-1. Hover kartu tweet
-2. Klik **NΔ RANK**
-3. Panel membuka laporan untuk tweet itu
-
-### Dari popup
-
-1. Pastikan tab aktif menampilkan tweet yang dimaksud
-2. Popup → **Validate active tweet**
-
-Data yang dibaca dari DOM (jika tersedia): teks, handle, verified, counts (like/reply/repost/view), indikasi media, umur post (dari Snowflake ID).
+Data dari DOM (jika ada): teks, handle, verified, counts, media, umur (Snowflake ID).
 
 ---
 
-## 6. Scan & ranking timeline
+## 7. Scan timeline
 
-1. Scroll feed agar beberapa tweet termuat di layar  
-2. Panel → **Scan** (atau popup **Scan visible timeline**)  
-3. NARV menskor semua `article[data-testid="tweet"]` yang terlihat  
-4. Daftar diurutkan skor tertinggi → terendah  
-5. Klik baris untuk laporan penuh  
-6. **Export CSV** / **Export JSON** untuk arsip  
-
-Berguna untuk: membandingkan performa potensial post di For You vs sekitarnya (secara relatif, di client).
+1. Scroll feed agar beberapa tweet termuat  
+2. **Scan**  
+3. Daftar diurutkan skor tertinggi → terendah  
+4. Klik baris untuk laporan penuh  
+5. **Export CSV** / **Export JSON**
 
 ---
 
-## 7. Membaca laporan skor
+## 8. Membaca laporan skor
 
-### Hero score
+### Hero
 
 | Elemen | Arti |
 |--------|------|
-| Angka 0–100 | Skor final ternormalisasi (display) |
-| Huruf **A+ … F** | Grade kasar potensi distribusi |
-| Badge **Phoenix proxy** / **Sidecar** | Sumber P(action) |
+| Angka 0–100 | Skor display ternormalisasi |
+| Grade **A+ … F** | Estimasi potensi distribusi |
+| Badge **proxy / sidecar** | Sumber P(action) |
 | Badge **profil** | Mis. `conversation`, `media` |
-| **Filters OK** / risiko | Lolos filter keras atau tidak |
+| **Filters OK** | Lolos filter keras (client) |
 | **In-network / OON** | Asumsi jaringan (default in-network) |
 
-### Grade (orientasi)
-
-| Grade | Arti praktis |
-|-------|----------------|
-| A+ / A | Kuat untuk kandidat distribusi |
-| B | Solid, masih bisa dioptimasi |
-| C | Rata-rata — perbaiki reply/media |
-| D | Lemah — risiko reach rendah |
+| Grade | Orientasi |
+|-------|-----------|
+| A+ / A | Kuat |
+| B | Solid |
+| C | Rata-rata — optimasi reply/media |
+| D | Lemah |
 | F | Buruk / pola spam / sinyal negatif |
 
-### Tab Report
+### Tab lain
 
-- Preview teks & metrik  
-- **Top positive drivers** — aksi yang paling mendorong skor (mis. reply × bobot tinggi)  
-- **Negative / risk drivers** — report, mute, not interested, dll.  
-- **Insights** — strengths / risks / tips berbahasa manusia  
-- **Content features** — conversation, media, structure, freshness  
-
-### Tab 19 Signals
-
-Dua blok:
-
-1. **P(action)** — estimasi probabilitas tiap aksi  
-2. **Weighted contributions** — `bobot × probabilitas` (yang benar-benar masuk rumus)
-
-### Tab Filters
-
-Checklist mirip filter home-mixer (Age, Self, muted keywords, soft external link, VF heuristik, dll.).  
-`null`/unknown = butuh data server (mis. “sudah pernah dilihat”).
-
-### Tab Pipeline
-
-Jejak tahap: hydration → filters → phoenix → weighted → diversity → OON → final.
+- **19 Signals** — P(action) dan `bobot × P`  
+- **Filters** — Age, self, muted, soft external link, VF soft, …  
+- **Pipeline** — hydration → filters → phoenix → weighted → diversity → OON → final  
 
 ---
 
-## 8. A/B bandingkan profil bobot
+## 9. A/B profil bobot
 
-Skor **tweet yang sama** dengan beberapa set bobot (bukan mengubah teks).
+Skor **tweet yang sama** dengan set bobot berbeda.
 
-1. Buka tweet / pastikan konteks aktif  
-2. Panel → **A/B profiles** atau `Alt+Shift+C`  
-3. Lihat ranking profil: mana yang memberi skor tertinggi  
-4. Opsional **Export compare JSON**
+**NΔ** → **A/B profiles** atau `Alt+Shift+C`
 
-### Arti profil bawaan
-
-| Profil | Fokus optimasi |
-|--------|----------------|
-| **balanced** | Default seimbang |
-| **conversation** | Reply, quote, follow (bagus untuk pertanyaan & thread) |
-| **media** | Video quality view, photo expand, dwell |
-| **news** | Click, share link, quote |
-| **viral** | Repost & share cascade |
-| **demo_pipeline** | Bobot toy dari demo OSS (riset, bukan produksi) |
-
-Jika “conversation” menang jauh di atas “media”, konten Anda lebih “dibaca” sebagai pemicu diskusi daripada konten visual (pada bobot default NARV).
+| Profil | Fokus |
+|--------|--------|
+| `balanced` | Default seimbang |
+| `conversation` | Reply, quote, follow |
+| `media` | VQV, photo expand, dwell |
+| `news` | Click, share link |
+| `viral` | Repost & share |
+| `demo_pipeline` | Bobot toy demo OSS (riset) |
 
 ---
 
-## 9. Pengaturan (Options)
+## 10. Pengaturan (Options)
 
-Buka **Options** dari popup atau `chrome://extensions` → Details → Extension options.
+| Bagian | Isi |
+|--------|-----|
+| **Weight profile** | Pilih profil → bobot ter-update → Save |
+| **Viewer context** | In-network default, history affinity, muted keywords |
+| **Affinity calibration** | Import JSON riwayat → calibrate → optional apply suggested profile |
+| **Sidecar** | Enable, URL `http://127.0.0.1:8787`, mode hash/proxy/jax, test connection |
+| **Auto-sampler** | Auto impor di `/likes`, tampilkan tombol +HIST |
 
-### Weight profile
+Selalu **Save settings** setelah mengubah opsi.
 
-Klik kartu profil → bobot di form ter-update → **Save settings**.
-
-### Viewer context
-
-| Opsi | Fungsi |
-|------|--------|
-| **Assume in-network** | Post diasumsikan dari akun yang di-follow (OON factor = 1) |
-| **History affinity (0–1)** | Seberapa “kenal” model proxy dengan preferensi Anda |
-| **Muted keywords** | Daftar kata (koma) untuk simulasi MutedKeywordFilter |
-
-### Affinity calibration
-
-1. Upload / paste JSON riwayat engagement  
-2. **Calibrate from history**  
-3. Opsional **Apply suggested profile**  
-4. **Save settings**
-
-Contoh format sederhana:
+Contoh JSON affinity:
 
 ```json
 {
   "engagements": [
-    { "text": "Topik yang saya suka", "liked": true, "replied": true, "author": "someone" },
+    { "text": "Topik yang saya suka", "liked": true, "replied": true },
     { "text": "Spam giveaway", "not_interested": true }
   ]
 }
 ```
 
-File contoh di repo: `test/sample-history.json`.
-
-### Phoenix sidecar
-
-| Opsi | Fungsi |
-|------|--------|
-| Enable sidecar | Pakai server lokal untuk P(action) |
-| Base URL | Default `http://127.0.0.1:8787` |
-| Engine mode | `hash` (disarankan) / `proxy` / `jax` |
-| Test connection | Cek `/health` |
-
-### Engagement auto-sampler
-
-| Opsi | Fungsi |
-|------|--------|
-| Auto-sample on /likes | Saat buka halaman likes, impor otomatis (setelah delay) |
-| Show +HIST buttons | Tampilkan tombol sampel di hover tweet |
-
-Jangan lupa **Save settings** setelah mengubah opsi.
+File contoh: [`test/sample-history.json`](./test/sample-history.json).
 
 ---
 
-## 10. Kalibrasi affinity & sampler riwayat
+## 11. Affinity & sampler riwayat
 
-Agar skor lebih “dekat” dengan preferensi Anda (masih di level proxy, bukan model production):
+| Cara | Langkah |
+|------|---------|
+| Halaman Likes | Buka `x.com/YOU/likes` → **Sample hist** → Import → Calibrate |
+| Manual | Options: aktifkan +HIST → hover tweet → **+HIST** → Calibrate |
+| JSON | Options → upload/paste → Calibrate |
 
-### Cara A — halaman Likes
-
-1. Buka `https://x.com/USERNAME/likes`  
-2. Scroll agar banyak post termuat  
-3. Panel → **Sample hist** → **Import visible likes**  
-4. **Calibrate affinity**  
-5. (Opsional) Options → Apply suggested profile → Save  
-
-### Cara B — manual per tweet
-
-1. Aktifkan **Show +HIST buttons** di Options  
-2. Hover tweet → **+HIST**  
-3. Ulangi, lalu **Sample hist** → Calibrate  
-
-### Cara C — JSON
-
-Import di Options (lihat §9).
-
-### Kelola sampel
-
-Di **Sample hist**:
-
-- **Export history JSON** — backup  
-- **Clear** — hapus semua sampel lokal  
-
-Sampel disimpan di `chrome.storage.local` (per browser/profil Chrome).
+**Export history JSON** / **Clear** tersedia di panel Sample hist.  
+Data sample: `chrome.storage.local`.
 
 ---
 
-## 11. Sidecar opsional (lebih konsisten)
+## 12. Sidecar opsional
 
-Tanpa sidecar, semua skor P(action) dihitung **di dalam browser** (proxy).  
-Dengan sidecar, heads dihitung di proses Python lokal (mode **hash** default).
-
-### Menjalankan sidecar
-
-Di folder repo:
+Tanpa sidecar: P(action) dihitung di browser (proxy).  
+Dengan sidecar: heads dihitung di Python lokal (default **hash**).
 
 ```bash
 python3 sidecar/server.py
+# http://127.0.0.1:8787
 ```
 
-Harus muncul: `NARV Phoenix sidecar v1.2.0 on http://127.0.0.1:8787`.
+Options → Enable sidecar → Test connection → Save.  
+Jika sidecar mati → **fallback otomatis** ke proxy.
 
-### Menghubungkan ke ekstensi
-
-1. Options → centang **Enable sidecar**  
-2. URL `http://127.0.0.1:8787`  
-3. Mode **hash**  
-4. **Test connection** → harus OK  
-5. **Save settings**  
-
-Jika sidecar mati, NARV **otomatis fallback** ke proxy in-page (badge “Sidecar fallback” bisa muncul).
-
-Dokumentasi API & mode jax: [wiki/Sidecar.md](./wiki/Sidecar.md).
+Detail API: [wiki/Sidecar.md](./wiki/Sidecar.md).
 
 ---
 
-## 12. Ekspor data
+## 13. Ekspor
 
 | Data | Cara |
 |------|------|
-| Laporan satu tweet | Tab Report → **Download report JSON**, atau ⧉ copy |
-| Hasil scan timeline | Setelah Scan → **Export CSV** / **Export JSON** |
-| Hasil A/B | Setelah compare → **Export compare JSON** |
-| Riwayat engagement | Sample hist → **Export history JSON** |
-
-CSV cocok untuk spreadsheet; JSON untuk arsip lengkap / analisis lanjutan.
+| Satu laporan | Report → Download JSON / tombol ⧉ |
+| Scan timeline | Export CSV / JSON |
+| A/B compare | Export compare JSON |
+| History samples | Sample hist → Export history JSON |
 
 ---
 
-## 13. Shortcut keyboard
+## 14. Shortcut keyboard
 
-Berlaku di halaman **x.com** / twitter.com:
+Di **x.com** (setelah unlock):
 
 | Pintasan | Aksi |
 |----------|------|
-| `Alt` + `Shift` + `N` | Validate tweet aktif |
-| `Alt` + `Shift` + `C` | A/B profile compare |
-| `Alt` + `Shift` + `S` | Panel engagement sampler |
+| `Alt`+`Shift`+`N` | Validate |
+| `Alt`+`Shift`+`C` | A/B profiles |
+| `Alt`+`Shift`+`S` | Sampler |
 
 ---
 
-## 14. Alur kerja yang disarankan
+## 15. Alur kerja yang disarankan
 
-### Creator — sebelum posting
+### Creator (sebelum post)
 
-1. Set profil di Options (**conversation** jika ingin diskusi, **media** jika video-first).  
-2. (Opsional) calibrate affinity dari likes Anda.  
-3. Tulis draf di X → **Draft** → Score draft.  
-4. Perbaiki tips (CTA, media, link, spam).  
-5. **A/B profiles** untuk melihat sudut bobot mana yang unggul.  
-6. Post → setelah ada views, **Validate** lagi untuk melihat skor dengan engagement nyata.
+```
+Follow @Deadmouse_jpeg (atau login sebagai owner)
+→ pilih profil di Options
+→ Draft scorer → perbaiki tips
+→ A/B profiles (opsional)
+→ Post di X
+→ Validate lagi setelah ada views (opsional)
+```
 
-### Analis — audit feed
+### Analis feed
 
-1. Buka For You / Following.  
-2. **Scan** → urutkan skor.  
-3. Export CSV.  
-4. Buka post menarik → Report + 19 Signals.
-
-### Power user
-
-1. Jalankan sidecar hash.  
-2. Aktifkan di Options.  
-3. Sampler likes + calibrate.  
-4. Bandingkan draf di beberapa profil; simpan JSON.
+```
+Unlock → Scan timeline → Export CSV → buka post top → 19 Signals
+```
 
 ---
 
-## 15. FAQ & batasan
+## 16. FAQ
 
-### Apakah skor = ranking resmi di X?
+**Apakah skor = ranking resmi X?**  
+Tidak. Production memakai model Phoenix + history viewer + bobot privat. NARV meniru struktur open-source dengan estimasi yang bisa diaudit.
 
-**Tidak.** Production memakai model Phoenix (Grok-based) + history user + bobot privat yang tidak dipublikasikan. NARV meniru **struktur** open-source (multi-action, weighted sum, diversity, OON, filter) dengan estimasi yang bisa diaudit.
+**Saya @Deadmouse_jpeg tapi masih terkunci?**  
+Pastikan login di tab itu sebagai `@Deadmouse_jpeg`, reload extension, refresh x.com, lalu **cek ulang**. Jangan pakai akun lain di switcher.
 
-### Kenapa draf saya dapat grade bagus tapi post tidak viral?
+**Sudah follow tapi masih terkunci?**  
+Login di tab yang sama, buka lagi profil creator, klik **cek ulang**. API X kadang butuh sesi segar.
 
-Reach nyata bergantung pada network, timing, history viewer lain, retrieval OON, safety server, dan eksperimen online X — semuanya di luar klien.
+**Kenapa draf bagus tapi post tidak viral?**  
+Reach nyata = network, timing, history viewer lain, retrieval OON, safety server, eksperimen online — di luar klien.
 
-### Kenapa angka berubah setelah ganti profil?
+**Link eksternal?**  
+Di proxy, sering menekan skor; soft warning di filters.
 
-Profil mengubah **bobot** (prioritas aksi), bukan teks. Reply bisa jauh lebih mahal di profil conversation.
-
-### Link eksternal selalu “buruk”?
-
-Di model proxy, link eksternal sering menekan distribusi OON. Itu soft signal di filter + penalti kualitas, bukan sensor.
-
-### Extension tidak jalan
-
-- Refresh x.com  
-- Pastikan Load unpacked ke folder yang benar (`manifest.json` di root)  
-- Cek console halaman untuk `[NARV]`  
-- Popup harus “Connected” di tab x.com  
-
-### Sidecar “Offline”
-
-- Pastikan `python3 sidecar/server.py` masih jalan  
-- URL tepat `http://127.0.0.1:8787`  
-- Tidak diblok extension lain / firewall lokal  
+**Extension tidak muncul?**  
+Refresh x.com · Load unpacked ke folder yang benar · pastikan aktif di `chrome://extensions`.
 
 ---
 
-## 16. Privasi
+## 17. Privasi
 
-- Berjalan **lokal** di browser Anda di domain X  
-- **Tidak** ada backend analytics bawaan NARV  
+- Berjalan lokal di browser pada domain X  
+- Tidak ada backend analytics bawaan NARV  
 - Preferensi: `chrome.storage.sync`  
-- Sampel engagement: `chrome.storage.local` (bisa di-clear)  
-- Sidecar hanya listen di localhost  
+- Sample engagement: `chrome.storage.local` (bisa di-clear)  
+- Cek follow memakai sesi X yang sudah login di tab (API web X)  
+- Sidecar hanya listen localhost  
 
 ---
 
-## 17. Bantuan pengembang
+## 18. Pengembang
 
-Dokumentasi pembangunan, arsitektur, API sidecar, dan riset algoritma dipindah ke **Wiki**:
+Dokumentasi build, arsitektur, API, dan riset:
 
-| Topik | Di repo | GitHub Wiki |
-|--------|---------|--------------|
-| Beranda | [wiki/Home.md](./wiki/Home.md) | [Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki) |
-| Development | [wiki/Development.md](./wiki/Development.md) | [Development](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Development) |
-| Architecture | [wiki/Architecture.md](./wiki/Architecture.md) | [Architecture](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Architecture) |
-| Integrations | [wiki/Integrations.md](./wiki/Integrations.md) | [Integrations](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Integrations) |
-| Sidecar API | [wiki/Sidecar.md](./wiki/Sidecar.md) | [Sidecar](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Sidecar) |
-| Research | [wiki/Research.md](./wiki/Research.md) | [Research](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Research) |
-| Contributing | [wiki/Contributing.md](./wiki/Contributing.md) | [Contributing](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/Contributing) |
+| Topik | Path |
+|--------|------|
+| Home | [wiki/Home.md](./wiki/Home.md) |
+| Development | [wiki/Development.md](./wiki/Development.md) |
+| Architecture | [wiki/Architecture.md](./wiki/Architecture.md) |
+| Integrations | [wiki/Integrations.md](./wiki/Integrations.md) |
+| Sidecar | [wiki/Sidecar.md](./wiki/Sidecar.md) |
+| Research | [wiki/Research.md](./wiki/Research.md) |
+| Contributing | [wiki/Contributing.md](./wiki/Contributing.md) |
 
-> **Inisialisasi GitHub Wiki (sekali saja):** buka [Create the first page](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki/_new) → simpan judul `Home` → workflow **Publish Wiki** akan menyalin isi folder `wiki/` (atau jalankan manual *workflow_dispatch*).
+```bash
+npm test                 # smoke pipeline
+npm run sidecar          # server lokal
+npm run build            # zip dist/
+```
 
 ---
 
 ## Lisensi & kredit
 
 - **Ekstensi:** MIT  
+- **Creator / syarat follow:** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg)  
 - **Analisis algoritma:** diturunkan dari [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm) (Apache-2.0)  
 - Tidak mendistribusikan bobot model Phoenix production  
 
-**Repo:** https://github.com/NanoMindExplorer/nano-algorithm-rank-validator
+**Repo:** https://github.com/NanoMindExplorer/nano-algorithm-rank-validator  
+**X:** https://x.com/Deadmouse_jpeg
