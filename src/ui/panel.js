@@ -220,15 +220,24 @@
       const ok = await refreshFollowGate({ force: true });
       if (ok) {
         flash("Akses dibuka ✓");
-        bodyEl.innerHTML = `
-          <div class="narv-empty">
-            <strong>Welcome.</strong> Tools terbuka.<br/><br/>
-            · <b>Draft</b> — skor sebelum post<br/>
-            · <b>Validate</b> — skor tweet aktif<br/>
-            · <b>Scan</b> — ranking timeline
-          </div>`;
+        bodyEl.innerHTML = welcomeHtml();
       }
     });
+  }
+
+  function welcomeHtml(status) {
+    const ownerNote =
+      status && status.isOwner
+        ? `<p class="narv-muted" style="margin-top:8px">Mode pemilik (@Deadmouse_jpeg) — tidak perlu follow diri sendiri.</p>`
+        : "";
+    return `
+      <div class="narv-empty">
+        <strong>Welcome.</strong> Tools terbuka.<br/><br/>
+        · <b>Draft</b> — skor sebelum post<br/>
+        · <b>Validate</b> — skor tweet aktif<br/>
+        · <b>Scan</b> — ranking timeline
+        ${ownerNote}
+      </div>`;
   }
 
   async function refreshFollowGate(opts = {}) {
@@ -241,6 +250,12 @@
     const status = await root.NARVFollowGate.ensureFollowing(opts);
     if (status.following) {
       setToolsEnabled(true);
+      if (status.isOwner || status.reason === "owner") {
+        // Soft notice once when owner unlocks
+        if (bodyEl && /Memeriksa|Memverifikasi|Follow required|locked/i.test(bodyEl.innerText || "")) {
+          bodyEl.innerHTML = welcomeHtml(status);
+        }
+      }
       return true;
     }
     showLocked(status);

@@ -5,7 +5,8 @@ Ekstensi Chrome untuk **memvalidasi dan merangking post X (Twitter)** sebelum at
 **Versi:** 1.3.0 · **Creator:** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) · **Lisensi:** MIT  
 **Wiki:** [folder `wiki/`](./wiki/Home.md) · [GitHub Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki)
 
-> ⚠️ **Syarat pakai:** kamu **wajib follow** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) di X. Jika belum follow, tools terkunci (panel & popup menampilkan layar unlock).
+> ⚠️ **Syarat pakai:** kamu **wajib follow** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) di X. Jika belum follow, tools terkunci (panel & popup menampilkan layar unlock).  
+> **Pemilik akun** `@Deadmouse_jpeg` otomatis terbuka (X tidak mengizinkan follow diri sendiri).
 
 > Skor yang ditampilkan adalah **simulasi transparan** (proxy / sidecar hash) yang mengikuti *formula dan pipeline publik* algoritma X — **bukan** skor production Phoenix resmi di server X.
 

@@ -28,6 +28,69 @@
     }
   }
 
+  function normalizeHandle(h) {
+    return String(h || "")
+      .trim()
+      .replace(/^@/, "")
+      .toLowerCase();
+  }
+
+  /**
+   * Detect logged-in screen name from X page globals / DOM.
+   * Owner @Deadmouse_jpeg cannot follow themselves — must unlock as self.
+   */
+  function detectLoggedInHandle() {
+    try {
+      // Legacy twttr / __INITIAL_STATE__ style
+      const initial =
+        window.__INITIAL_STATE__ ||
+        window.__NEXT_DATA__ ||
+        null;
+      if (initial?.session?.user?.screen_name) {
+        return normalizeHandle(initial.session.user.screen_name);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      // Account switcher / profile link in side nav
+      const selectors = [
+        '[data-testid="SideNav_AccountSwitcher_Button"] [dir="ltr"]',
+        'a[data-testid="AppTabBar_Profile_Link"]',
+        '[data-testid="UserAvatar-Container-unknown"]',
+      ];
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const href = el.getAttribute?.("href") || el.closest?.("a")?.getAttribute?.("href");
+        if (href && /^\/[A-Za-z0-9_]+\/?$/.test(href.split("?")[0])) {
+          return normalizeHandle(href.replace(/\//g, ""));
+        }
+        const text = (el.textContent || "").trim();
+        if (text.startsWith("@")) return normalizeHandle(text);
+      }
+
+      // Profile nav: /i/user/... or /{handle}
+      const profileLink = document.querySelector(
+        'nav a[href^="/"][aria-label*="Profile"], a[data-testid="AppTabBar_Profile_Link"]'
+      );
+      if (profileLink) {
+        const href = profileLink.getAttribute("href") || "";
+        const m = href.match(/^\/([A-Za-z0-9_]+)\/?$/);
+        if (m) return normalizeHandle(m[1]);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return null;
+  }
+
+  function isOwnerAccount(handle) {
+    return normalizeHandle(handle) === normalizeHandle(REQUIRED_HANDLE);
+  }
+
   async function readCache() {
     try {
       const data = await chrome.storage.local.get({ [CACHE_KEY]: null });
@@ -66,6 +129,21 @@
       };
     }
 
+    // Prefer identity check first — owner cannot follow self
+    try {
+      if (await checkIfSelfViaVerify()) {
+        return {
+          following: true,
+          reason: "owner",
+          message: `Owner unlock — logged in as @${REQUIRED_HANDLE}`,
+          isOwner: true,
+          raw: { source: { screen_name: REQUIRED_HANDLE } },
+        };
+      }
+    } catch {
+      /* continue to friendship check */
+    }
+
     const url =
       `https://x.com/i/api/1.1/friendships/show.json?` +
       `target_screen_name=${encodeURIComponent(REQUIRED_HANDLE)}`;
@@ -97,6 +175,17 @@
     }
 
     const data = await res.json();
+    const sourceName = data?.relationship?.source?.screen_name;
+    if (sourceName && isOwnerAccount(sourceName)) {
+      return {
+        following: true,
+        reason: "owner",
+        message: `Owner unlock — logged in as @${REQUIRED_HANDLE}`,
+        isOwner: true,
+        raw: { source: data?.relationship?.source || null },
+      };
+    }
+
     const following = !!(
       data?.relationship?.source?.following ||
       data?.relationship?.target?.followed_by
@@ -168,6 +257,27 @@
   async function ensureFollowing(opts = {}) {
     const force = !!opts.force;
 
+    // Owner bypass: X does not allow following yourself
+    const me = detectLoggedInHandle();
+    if (me && isOwnerAccount(me)) {
+      const ownerResult = {
+        following: true,
+        reason: "owner",
+        message: `Owner unlock — logged in as @${REQUIRED_HANDLE}`,
+        isOwner: true,
+        requiredHandle: REQUIRED_HANDLE,
+        profileUrl: PROFILE_URL,
+        checkedAt: Date.now(),
+      };
+      await writeCache({
+        following: true,
+        checkedAt: ownerResult.checkedAt,
+        message: ownerResult.message,
+        isOwner: true,
+      });
+      return ownerResult;
+    }
+
     if (!force) {
       const cached = await readCache();
       if (
@@ -181,6 +291,7 @@
           reason: "cache",
           message: cached.message || `Following @${REQUIRED_HANDLE}`,
           fromCache: true,
+          isOwner: !!cached.isOwner,
           requiredHandle: REQUIRED_HANDLE,
           profileUrl: PROFILE_URL,
         };
@@ -190,6 +301,19 @@
     let result;
     try {
       result = await checkViaApi();
+      // API may also reveal source screen_name
+      const sourceName =
+        result?.raw?.source?.screen_name ||
+        result?.raw?.source?.screenName ||
+        null;
+      if (sourceName && isOwnerAccount(sourceName)) {
+        result = {
+          following: true,
+          reason: "owner",
+          message: `Owner unlock — logged in as @${REQUIRED_HANDLE}`,
+          isOwner: true,
+        };
+      }
     } catch (e) {
       try {
         result = await checkViaDomFallback();
@@ -203,6 +327,23 @@
       }
     }
 
+    // If still locked, re-check owner via API verify_credentials style path
+    if (!result.following) {
+      try {
+        const ownerFromApi = await checkIfSelfViaVerify();
+        if (ownerFromApi) {
+          result = {
+            following: true,
+            reason: "owner",
+            message: `Owner unlock — logged in as @${REQUIRED_HANDLE}`,
+            isOwner: true,
+          };
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     result.requiredHandle = REQUIRED_HANDLE;
     result.profileUrl = PROFILE_URL;
     result.checkedAt = Date.now();
@@ -212,6 +353,7 @@
         following: true,
         checkedAt: result.checkedAt,
         message: result.message,
+        isOwner: !!result.isOwner,
       });
     } else {
       // Don't cache negatives long — user may follow immediately
@@ -223,6 +365,29 @@
     }
 
     return result;
+  }
+
+  /**
+   * Confirm session user is the required handle (account owner).
+   */
+  async function checkIfSelfViaVerify() {
+    const ct0 = getCookie("ct0");
+    if (!ct0) return false;
+
+    const res = await fetch("https://x.com/i/api/1.1/account/verify_credentials.json", {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${X_BEARER}`,
+        "x-csrf-token": ct0,
+        "x-twitter-auth-type": "OAuth2Session",
+        "x-twitter-active-user": "yes",
+      },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return isOwnerAccount(data?.screen_name);
   }
 
   /**
@@ -243,6 +408,8 @@
     requireFollow,
     clearCache,
     checkViaApi,
+    detectLoggedInHandle,
+    isOwnerAccount,
   };
 
   root.NARVFollowGate = NARVFollowGate;
