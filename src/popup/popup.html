@@ -8,14 +8,31 @@
   </head>
   <body>
     <header>
-      <div class="logo">NΔ</div>
+      <img class="logo-img" src="../../icons/icon48.png" width="40" height="40" alt="NARV" />
       <div>
         <h1>Nano Algorithm Rank Validator</h1>
-        <p class="sub">v1.2 · full algorithm toolkit</p>
+        <p class="sub">v1.3 · by @Deadmouse_jpeg</p>
       </div>
     </header>
 
-    <section class="actions">
+    <section id="gate-block" class="gate" hidden>
+      <p class="gate-title">🔒 Follow required</p>
+      <p class="gate-text">
+        Tools ini hanya bisa dipakai setelah kamu follow
+        <strong>@Deadmouse_jpeg</strong> di X.
+      </p>
+      <a
+        class="primary link-btn"
+        href="https://x.com/Deadmouse_jpeg"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Follow @Deadmouse_jpeg</a
+      >
+      <button id="btn-recheck" type="button">Saya sudah follow — cek ulang</button>
+      <p class="note dim" id="gate-msg"></p>
+    </section>
+
+    <section id="actions-block" class="actions" hidden>
       <button id="btn-validate" class="primary">Validate active tweet</button>
       <button id="btn-scan">Scan visible timeline</button>
       <button id="btn-compare">A/B profile compare</button>
@@ -25,13 +42,6 @@
     </section>
 
     <section class="info">
-      <h2>v1.2 complete</h2>
-      <ul>
-        <li>Profiles + A/B compare</li>
-        <li>Affinity + likes sampler</li>
-        <li>CSV/JSON export</li>
-        <li>Sidecar hash / proxy / jax</li>
-      </ul>
       <p class="note">
         <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> validate ·
         <kbd>C</kbd> compare · <kbd>S</kbd> sample
@@ -40,12 +50,7 @@
     </section>
 
     <footer>
-      <a
-        href="https://github.com/NanoMindExplorer/nano-algorithm-rank-validator"
-        target="_blank"
-        rel="noreferrer"
-        >Repo ↗</a
-      >
+      <a href="https://x.com/Deadmouse_jpeg" target="_blank" rel="noreferrer">@Deadmouse_jpeg ↗</a>
       <span id="status"></span>
     </footer>
 

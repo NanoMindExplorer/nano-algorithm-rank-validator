@@ -1,5 +1,5 @@
 /**
- * Content script entry — wires panel, sampler, DOM observation on x.com
+ * Content script entry — follow gate + panel + sampler on x.com
  */
 
 (function () {
@@ -7,6 +7,24 @@
 
   if (window.__NARV_LOADED__) return;
   window.__NARV_LOADED__ = true;
+
+  async function gated(action) {
+    if (!window.NARVPanel) return { ok: false };
+    if (window.NARVFollowGate) {
+      const status = await NARVFollowGate.ensureFollowing({ force: false });
+      if (!status.following) {
+        NARVPanel.openPanel();
+        return {
+          ok: false,
+          blocked: true,
+          message: status.message,
+          following: false,
+        };
+      }
+    }
+    await action();
+    return { ok: true, following: true };
+  }
 
   function init() {
     if (!window.NARVPanel) {
@@ -19,7 +37,17 @@
     });
     NARVPanel.injectTweetButtons();
 
-    // Re-inject buttons as timeline virtualizes
+    // Background follow check on load (non-blocking)
+    if (window.NARVFollowGate) {
+      NARVFollowGate.ensureFollowing({ force: false }).then((s) => {
+        console.info(
+          "[NARV] Follow gate:",
+          s.following ? "unlocked" : "locked",
+          s.reason || ""
+        );
+      });
+    }
+
     let scheduled = false;
     const obs = new MutationObserver(() => {
       if (scheduled) return;
@@ -31,33 +59,29 @@
     });
     obs.observe(document.body, { childList: true, subtree: true });
 
-    // Keyboard shortcuts
     document.addEventListener("keydown", (e) => {
       if (!(e.altKey && e.shiftKey)) return;
       const k = e.key.toLowerCase();
       if (k === "n") {
         e.preventDefault();
-        NARVPanel.openPanel();
-        NARVPanel.validateActive();
+        gated(() => NARVPanel.validateActive());
       } else if (k === "c") {
         e.preventDefault();
-        NARVPanel.openPanel();
-        NARVPanel.compareProfiles?.();
+        gated(() => NARVPanel.compareProfiles?.());
       } else if (k === "s") {
         e.preventDefault();
-        NARVPanel.openPanel();
-        NARVPanel.sampleHistoryUI?.();
+        gated(() => NARVPanel.sampleHistoryUI?.());
       }
     });
 
-    // Auto-sample prompt once on likes page
     try {
       chrome.storage.sync.get({ autoSampleEnabled: false }, (cfg) => {
-        if (
-          cfg.autoSampleEnabled &&
-          window.NARVSampler?.isLikesPage?.()
-        ) {
+        if (cfg.autoSampleEnabled && window.NARVSampler?.isLikesPage?.()) {
           setTimeout(async () => {
+            if (window.NARVFollowGate) {
+              const s = await NARVFollowGate.ensureFollowing({ force: false });
+              if (!s.following) return;
+            }
             const r = await NARVSampler.sampleVisibleAsLiked(NARVParser);
             console.info("[NARV] Auto-sampled likes:", r);
           }, 2500);
@@ -67,13 +91,31 @@
       /* ignore */
     }
 
-    // Messages from popup / background
     try {
       chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         if (!msg || !msg.type) return;
 
+        if (msg.type === "NARV_CHECK_FOLLOW") {
+          if (!window.NARVFollowGate) {
+            sendResponse({
+              following: false,
+              message: "Follow gate missing — reload extension",
+            });
+            return true;
+          }
+          NARVFollowGate.ensureFollowing({ force: !!msg.force }).then((s) => {
+            if (s.following) {
+              NARVPanel.refreshFollowGate?.({ force: false });
+            } else {
+              NARVPanel.openPanel();
+            }
+            sendResponse(s);
+          });
+          return true;
+        }
+
         if (msg.type === "NARV_VALIDATE_ACTIVE") {
-          NARVPanel.validateActive().then(() => sendResponse({ ok: true }));
+          gated(() => NARVPanel.validateActive()).then(sendResponse);
           return true;
         }
         if (msg.type === "NARV_OPEN_PANEL") {
@@ -81,27 +123,25 @@
           sendResponse({ ok: true });
         }
         if (msg.type === "NARV_SCAN") {
-          NARVPanel.openPanel();
-          NARVPanel.scanTimeline?.() ||
-            document.getElementById("narv-validate-hover")?.click();
-          sendResponse({ ok: true });
+          gated(() =>
+            NARVPanel.scanTimeline?.() ||
+            Promise.resolve(document.getElementById("narv-validate-hover")?.click())
+          ).then(sendResponse);
           return true;
         }
         if (msg.type === "NARV_COMPARE") {
-          NARVPanel.openPanel();
-          NARVPanel.compareProfiles?.().then(() => sendResponse({ ok: true }));
+          gated(() => NARVPanel.compareProfiles?.()).then(sendResponse);
           return true;
         }
         if (msg.type === "NARV_SAMPLE") {
-          NARVPanel.openPanel();
-          NARVPanel.sampleHistoryUI?.();
-          sendResponse({ ok: true });
+          gated(() => NARVPanel.sampleHistoryUI?.()).then(sendResponse);
+          return true;
         }
         if (msg.type === "NARV_PING") {
           sendResponse({
             ok: true,
             url: location.href,
-            version: "1.2.0",
+            version: "1.3.0",
           });
         }
       });
@@ -110,7 +150,7 @@
     }
 
     console.info(
-      "[NARV] v1.2 ready — Alt+Shift+N validate · C compare · S sample"
+      "[NARV] v1.3 ready — follow @Deadmouse_jpeg required · Alt+Shift+N"
     );
   }
 

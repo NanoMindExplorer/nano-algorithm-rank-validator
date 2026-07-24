@@ -2,8 +2,10 @@
 
 Ekstensi Chrome untuk **memvalidasi dan merangking post X (Twitter)** sebelum atau sesudah dipublikasikan, berdasarkan struktur algoritma open-source **For You** dari [xai-org/x-algorithm](https://github.com/xai-org/x-algorithm).
 
-**Versi:** 1.2.0 · **Lisensi:** MIT  
-**Wiki (pengembang & riset):** [folder `wiki/`](./wiki/Home.md) · [GitHub Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki) (setelah diinisialisasi)
+**Versi:** 1.3.0 · **Creator:** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) · **Lisensi:** MIT  
+**Wiki:** [folder `wiki/`](./wiki/Home.md) · [GitHub Wiki](https://github.com/NanoMindExplorer/nano-algorithm-rank-validator/wiki)
+
+> ⚠️ **Syarat pakai:** kamu **wajib follow** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) di X. Jika belum follow, tools terkunci (panel & popup menampilkan layar unlock).
 
 > Skor yang ditampilkan adalah **simulasi transparan** (proxy / sidecar hash) yang mengikuti *formula dan pipeline publik* algoritma X — **bukan** skor production Phoenix resmi di server X.
 
@@ -35,6 +37,7 @@ Ekstensi Chrome untuk **memvalidasi dan merangking post X (Twitter)** sebelum at
 
 | Fitur | Kapan dipakai |
 |--------|----------------|
+| **Follow gate** | Unlock tools (wajib follow @Deadmouse_jpeg) |
 | **Draft scorer** | Mengetes teks *sebelum* di-post |
 | **Validate tweet** | Menganalisis post yang sudah live / milik orang lain |
 | **Scan timeline** | Membandingkan banyak post di feed |
@@ -50,28 +53,31 @@ Ekstensi Chrome untuk **memvalidasi dan merangking post X (Twitter)** sebelum at
 ### Syarat
 
 - Google Chrome atau Chromium (Manifest V3)
-- Akun/browser yang bisa membuka [x.com](https://x.com)
+- Akun X yang **sudah login** di browser
+- **Follow** [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) (wajib)
 
 ### Langkah
 
-1. Unduh atau clone repositori:
+1. Follow dulu: https://x.com/Deadmouse_jpeg  
+2. Unduh atau clone repositori:
    ```bash
    git clone https://github.com/NanoMindExplorer/nano-algorithm-rank-validator.git
    ```
-2. Buka Chrome → alamat `chrome://extensions`
-3. Aktifkan **Developer mode** (kanan atas)
-4. Klik **Load unpacked**
-5. Pilih folder project yang berisi file `manifest.json`
-6. Pastikan ekstensi **Nano Algorithm Rank Validator** aktif
-7. Buka [https://x.com](https://x.com) (atau refresh jika sudah terbuka)
+3. Buka Chrome → alamat `chrome://extensions`
+4. Aktifkan **Developer mode** (kanan atas)
+5. Klik **Load unpacked**
+6. Pilih folder project yang berisi file `manifest.json`
+7. Pastikan ekstensi **Nano Algorithm Rank Validator** aktif
+8. Buka [https://x.com](https://x.com) (login), **refresh** halaman
 
 ### Verifikasi
 
-- Di pojok kanan bawah x.com muncul tombol bulat ungu **NΔ**
-- Saat hover sebuah tweet, muncul tombol **NΔ RANK** (dan opsional **+HIST**)
-- Klik ikon ekstensi di toolbar Chrome → popup NARV menampilkan status **Connected** bila tab aktif adalah x.com
+- Ikon baru (mouse + Δ neon) muncul di toolbar Chrome  
+- Di pojok kanan bawah x.com muncul tombol **NΔ**  
+- Buka panel / popup → jika belum follow, layar **Follow required**  
+- Setelah follow: klik **Saya sudah follow — cek ulang** → tools terbuka  
 
-Jika tombol tidak muncul: refresh halaman x.com, pastikan ekstensi tidak di-disable untuk situs itu.
+Jika tombol tidak muncul: refresh x.com, pastikan ekstensi aktif untuk situs itu.
 
 ---
 

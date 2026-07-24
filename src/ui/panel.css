@@ -560,6 +560,40 @@ article[data-testid="tweet"]:hover .narv-sample-btn,
   border-color: rgba(0, 186, 124, 0.5);
 }
 
+/* Follow gate lock screen */
+.narv-lock {
+  text-align: center;
+  padding: 28px 16px 20px;
+}
+
+.narv-lock-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.narv-lock h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.narv-lock p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--narv-text);
+}
+
+.narv-lock-link {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none !important;
+  width: 100%;
+  margin-top: 6px;
+  box-sizing: border-box;
+}
+
 .narv-tabs {
   display: flex;
   gap: 4px;

@@ -10,6 +10,7 @@
   let lastReport = null;
   let lastScan = null;
   let settings = null;
+  let followUnlocked = false;
 
   function esc(s) {
     return String(s ?? "")
@@ -112,31 +113,28 @@
         <div class="narv-header">
           <div class="narv-header-title">
             <strong>Nano Algorithm Rank Validator</strong>
-            <span>xai-org/x-algorithm · For You pipeline</span>
+            <span>by @Deadmouse_jpeg · For You pipeline</span>
           </div>
           <div class="narv-header-actions">
             <button class="narv-icon-btn" id="narv-copy" title="Copy JSON report" type="button">⧉</button>
             <button class="narv-icon-btn" id="narv-close" title="Close" type="button">✕</button>
           </div>
         </div>
-        <div class="narv-toolbar">
+        <div class="narv-toolbar" id="narv-toolbar">
           <button class="narv-btn narv-btn-primary" id="narv-validate-active" type="button">Validate</button>
           <button class="narv-btn narv-btn-secondary" id="narv-validate-hover" type="button">Scan</button>
           <button class="narv-btn narv-btn-secondary" id="narv-compare" type="button">A/B profiles</button>
           <button class="narv-btn narv-btn-ghost" id="narv-draft" type="button">Draft</button>
           <button class="narv-btn narv-btn-ghost" id="narv-sample" type="button">Sample hist</button>
         </div>
-        <div class="narv-tabs">
+        <div class="narv-tabs" id="narv-tabs">
           <button class="narv-tab active" data-tab="report" type="button">Report</button>
           <button class="narv-tab" data-tab="signals" type="button">19 Signals</button>
           <button class="narv-tab" data-tab="filters" type="button">Filters</button>
           <button class="narv-tab" data-tab="pipeline" type="button">Pipeline</button>
         </div>
         <div class="narv-body" id="narv-body">
-          <div class="narv-empty">
-            Open a tweet or click <strong>Validate this page</strong>.<br/><br/>
-            Scores follow <code>WeightedScorer</code> + Phoenix multi-action structure from the open-source X algorithm.
-          </div>
+          <div class="narv-empty">Memeriksa akses follow…</div>
         </div>
       </aside>
     `;
@@ -147,19 +145,29 @@
 
     rootEl.querySelector("#narv-fab").addEventListener("click", () => openPanel());
     rootEl.querySelector("#narv-close").addEventListener("click", () => closePanel());
-    rootEl.querySelector("#narv-copy").addEventListener("click", () => copyReport());
+    rootEl.querySelector("#narv-copy").addEventListener("click", () => {
+      if (!followUnlocked) return showLocked(null);
+      copyReport();
+    });
     rootEl
       .querySelector("#narv-validate-active")
-      .addEventListener("click", () => validateActive());
+      .addEventListener("click", () => withFollowGate(validateActive));
     rootEl
       .querySelector("#narv-validate-hover")
-      .addEventListener("click", () => scanTimeline());
-    rootEl.querySelector("#narv-draft").addEventListener("click", () => scoreDraft());
-    rootEl.querySelector("#narv-compare").addEventListener("click", () => compareProfiles());
-    rootEl.querySelector("#narv-sample").addEventListener("click", () => sampleHistoryUI());
+      .addEventListener("click", () => withFollowGate(scanTimeline));
+    rootEl
+      .querySelector("#narv-draft")
+      .addEventListener("click", () => withFollowGate(scoreDraft));
+    rootEl
+      .querySelector("#narv-compare")
+      .addEventListener("click", () => withFollowGate(compareProfiles));
+    rootEl
+      .querySelector("#narv-sample")
+      .addEventListener("click", () => withFollowGate(sampleHistoryUI));
 
     rootEl.querySelectorAll(".narv-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
+        if (!followUnlocked) return showLocked(null);
         rootEl.querySelectorAll(".narv-tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
         if (lastReport) renderReport(lastReport, tab.dataset.tab);
@@ -167,9 +175,92 @@
     });
   }
 
-  function openPanel() {
+  function setToolsEnabled(enabled) {
+    followUnlocked = !!enabled;
+    const toolbar = document.getElementById("narv-toolbar");
+    const tabs = document.getElementById("narv-tabs");
+    if (toolbar) toolbar.style.opacity = enabled ? "1" : "0.35";
+    if (tabs) tabs.style.opacity = enabled ? "1" : "0.35";
+    toolbar?.querySelectorAll("button").forEach((b) => {
+      b.disabled = !enabled;
+    });
+  }
+
+  function showLocked(status) {
+    ensureRoot();
+    const handle =
+      (root.NARVFollowGate && root.NARVFollowGate.REQUIRED_HANDLE) || "Deadmouse_jpeg";
+    const url =
+      (root.NARVFollowGate && root.NARVFollowGate.PROFILE_URL) ||
+      `https://x.com/${handle}`;
+    const msg =
+      (status && status.message) ||
+      `Follow @${handle} di X untuk membuka Nano Algorithm Rank Validator.`;
+
+    setToolsEnabled(false);
+    bodyEl.innerHTML = `
+      <div class="narv-lock">
+        <div class="narv-lock-icon">🔒</div>
+        <h2>Follow required</h2>
+        <p>${esc(msg)}</p>
+        <p class="narv-muted">Tools ini gratis, tapi wajib follow creator:</p>
+        <a class="narv-btn narv-btn-primary narv-lock-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
+          Follow @${esc(handle)}
+        </a>
+        <button class="narv-btn narv-btn-secondary" id="narv-recheck-follow" type="button" style="width:100%;margin-top:10px">
+          Saya sudah follow — cek ulang
+        </button>
+        <p class="narv-muted" style="margin-top:12px;font-size:11px">
+          Pastikan kamu login di x.com di tab ini. Setelah follow, klik cek ulang.
+        </p>
+      </div>
+    `;
+    bodyEl.querySelector("#narv-recheck-follow")?.addEventListener("click", async () => {
+      bodyEl.innerHTML = `<div class="narv-empty">Memverifikasi follow…</div>`;
+      const ok = await refreshFollowGate({ force: true });
+      if (ok) {
+        flash("Akses dibuka ✓");
+        bodyEl.innerHTML = `
+          <div class="narv-empty">
+            <strong>Welcome.</strong> Tools terbuka.<br/><br/>
+            · <b>Draft</b> — skor sebelum post<br/>
+            · <b>Validate</b> — skor tweet aktif<br/>
+            · <b>Scan</b> — ranking timeline
+          </div>`;
+      }
+    });
+  }
+
+  async function refreshFollowGate(opts = {}) {
+    if (!root.NARVFollowGate) {
+      showLocked({
+        message: "Follow gate module missing — reload extension.",
+      });
+      return false;
+    }
+    const status = await root.NARVFollowGate.ensureFollowing(opts);
+    if (status.following) {
+      setToolsEnabled(true);
+      return true;
+    }
+    showLocked(status);
+    return false;
+  }
+
+  async function withFollowGate(fn) {
+    openPanel();
+    const ok = await refreshFollowGate({ force: false });
+    if (!ok) return;
+    return fn();
+  }
+
+  async function openPanel() {
     ensureRoot();
     panelEl.classList.add("narv-open");
+    if (!followUnlocked) {
+      bodyEl.innerHTML = `<div class="narv-empty">Memeriksa follow @Deadmouse_jpeg…</div>`;
+      await refreshFollowGate({ force: false });
+    }
   }
 
   function closePanel() {
@@ -368,6 +459,7 @@
 
   async function validateActive() {
     openPanel();
+    if (!(await refreshFollowGate({ force: false }))) return;
     await loadSettings();
     let tweet =
       root.NARVParser.parseStatusPage() ||
@@ -390,6 +482,7 @@
 
   async function validateTweetObject(tweet) {
     openPanel();
+    if (!(await refreshFollowGate({ force: false }))) return;
     bodyEl.innerHTML = `<div class="narv-empty">Scoring…</div>`;
     const opts = await getOptions();
     const report = await scoreTweet(tweet, opts);
@@ -400,6 +493,7 @@
 
   async function scanTimeline() {
     openPanel();
+    if (!(await refreshFollowGate({ force: false }))) return;
     const opts = await getOptions();
     const items = root.NARVParser.parseVisibleTweets();
     if (!items.length) {
@@ -820,7 +914,7 @@
       btn.type = "button";
       btn.className = "narv-tweet-btn";
       btn.textContent = "NΔ RANK";
-      btn.title = "Validate with Nano Algorithm Rank Validator";
+      btn.title = "Validate — requires follow @Deadmouse_jpeg";
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -831,8 +925,12 @@
       article.appendChild(btn);
     });
 
-    // Optional history sample buttons
-    if (settings?.showSampleButtons !== false && root.NARVSampler) {
+    // Optional history sample buttons (also gated: only when unlocked)
+    if (
+      followUnlocked &&
+      settings?.showSampleButtons !== false &&
+      root.NARVSampler
+    ) {
       root.NARVSampler.injectSampleButtons(root.NARVParser, () => {
         flash("Added to history");
       });
@@ -850,6 +948,7 @@
     compareProfiles,
     sampleHistoryUI,
     scanTimeline,
+    refreshFollowGate,
   };
 
   root.NARVPanel = NARVPanel;
