@@ -45,7 +45,7 @@ from weighted_engine import (  # noqa: E402
 HOST = os.environ.get("NARV_SIDECAR_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NARV_SIDECAR_PORT", "8787"))
 MODE = os.environ.get("NARV_PHOENIX_MODE", "hash")  # proxy | hash | jax
-VERSION = "1.2.0"
+VERSION = "1.5.0"
 
 PROFILES: Dict[str, Dict[str, Any]] = {
     "balanced": {"weights": {}, "params": {}},

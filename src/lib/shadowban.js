@@ -220,11 +220,18 @@
     let foundIds = new Set();
     let http = 0;
     let method = "adaptive";
+    // Track whether ANY attempt actually got a successful (2xx) response.
+    // Without this, a network error / dead endpoint on both attempts looks
+    // identical to "searched successfully and found 0 tweets" — which was
+    // being reported as a confirmed Search Ban (false positive).
+    let gotOkResponse = false;
+    let lastErrorMsg = null;
 
     try {
       const res = await xFetch(url);
       http = res.status;
       if (res.ok) {
+        gotOkResponse = true;
         const data = await res.json();
         const tweets = data?.globalObjects?.tweets || {};
         Object.keys(tweets).forEach((id) => foundIds.add(String(id)));
@@ -236,7 +243,8 @@
         // no-op if empty
         void instr;
       }
-    } catch {
+    } catch (e) {
+      lastErrorMsg = e.message || String(e);
       /* try fallback */
     }
 
@@ -250,11 +258,13 @@
         http = res2.status;
         method = "search_tweets";
         if (res2.ok) {
+          gotOkResponse = true;
           const data2 = await res2.json();
           const statuses = data2.statuses || [];
           statuses.forEach((s) => foundIds.add(String(s.id_str || s.id)));
         }
-      } catch {
+      } catch (e) {
+        lastErrorMsg = e.message || String(e);
         /* ignore */
       }
     }
@@ -266,6 +276,24 @@
         title: "Search Ban",
         detail: `Search API menolak sesi (HTTP ${http}). Login ulang / refresh x.com.`,
         severity: "low",
+      };
+    }
+
+    // Neither attempt ever got a successful response — this is an API /
+    // connectivity problem, NOT evidence of a search ban. Report "unknown"
+    // instead of falsely flagging the account.
+    if (!gotOkResponse) {
+      return {
+        id: "search_ban",
+        status: "unknown",
+        title: "Search Ban",
+        detail:
+          `Tidak bisa memverifikasi Search Ban — endpoint pencarian gagal merespons sukses ` +
+          `(HTTP ${http || "tidak ada respons"}${lastErrorMsg ? " — " + lastErrorMsg : ""}). ` +
+          `Ini kemungkinan masalah API/endpoint X (bukan bukti search ban). Coba lagi nanti; ` +
+          `jika terus gagal, cek tab Network di DevTools untuk endpoint yang error.`,
+        severity: "low",
+        evidence: { method, http, error: lastErrorMsg },
       };
     }
 
