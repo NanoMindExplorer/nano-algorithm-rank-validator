@@ -4,7 +4,7 @@ Ekstensi Chrome untuk **memvalidasi dan merangking post di X (Twitter)** — seb
 
 | | |
 |---|---|
-| **Versi** | 1.4.0 |
+| **Versi** | 1.5.0 |
 | **Creator** | [@Deadmouse_jpeg](https://x.com/Deadmouse_jpeg) |
 | **Repo** | https://github.com/NanoMindExplorer/nano-algorithm-rank-validator |
 | **Lisensi** | MIT |
@@ -37,17 +37,18 @@ Jika terkunci, panel/popup menampilkan **Follow required** + tombol ke profil + 
 7. [Scan timeline](#7-scan-timeline)
 8. [Cek shadowban / visibilitas akun](#8-cek-shadowban--visibilitas-akun)
 9. [Tips pemulihan shadowban](#9-tips-pemulihan-shadowban)
-10. [Membaca laporan skor](#10-membaca-laporan-skor)
-11. [A/B profil bobot](#11-ab-profil-bobot)
-12. [Pengaturan (Options)](#12-pengaturan-options)
-13. [Affinity & sampler riwayat](#13-affinity--sampler-riwayat)
-14. [Sidecar opsional](#14-sidecar-opsional)
-15. [Ekspor](#15-ekspor)
-16. [Shortcut keyboard](#16-shortcut-keyboard)
-17. [Alur kerja yang disarankan](#17-alur-kerja-yang-disarankan)
-18. [FAQ](#18-faq)
-19. [Privasi](#19-privasi)
-20. [Pengembang](#20-pengembang)
+10. [Mass unfollow](#10-mass-unfollow-timer--non-followers--whitelist)
+11. [Membaca laporan skor](#11-membaca-laporan-skor)
+12. [A/B profil bobot](#12-ab-profil-bobot)
+13. [Pengaturan (Options)](#13-pengaturan-options)
+14. [Affinity & sampler riwayat](#14-affinity--sampler-riwayat)
+15. [Sidecar opsional](#15-sidecar-opsional)
+16. [Ekspor](#16-ekspor)
+17. [Shortcut keyboard](#17-shortcut-keyboard)
+18. [Alur kerja yang disarankan](#18-alur-kerja-yang-disarankan)
+19. [FAQ](#19-faq)
+20. [Privasi](#20-privasi)
+21. [Pengembang](#21-pengembang)
 
 ---
 
@@ -63,6 +64,7 @@ Jika terkunci, panel/popup menampilkan **Follow required** + tombol ke profil + 
 | **Filters** | Checklist Age, VF soft, muted keyword, link, dll. |
 | **Sampler (+HIST)** | Kumpulkan riwayat engagement untuk affinity |
 | **Shadowban check** | Search ban, suggestion ban, ghost/reply hide, risiko perilaku + tips sembuh |
+| **Mass unfollow** | Timer per unfollow, non-follow-back only, whitelist, pause/stop, daily cap |
 | **Export CSV/JSON** | Simpan scan & laporan |
 | **Sidecar lokal** | Engine hash Python di `127.0.0.1:8787` (opsional) |
 
@@ -137,6 +139,7 @@ Kanan bawah di x.com → buka side panel.
 | **Draft** | Skor sebelum post |
 | **Sample hist** | Riwayat engagement + kalibrasi |
 | **Shadowban** | Cek restriksi visibilitas + tips pemulihan |
+| **Unfollow** | Mass unfollow non-followers + timer + whitelist |
 | Tab **Report** | Ringkasan, grade, insights |
 | Tab **19 Signals** | Probabilitas & kontribusi bobot |
 | Tab **Filters** | Status filter pipeline |
@@ -271,7 +274,46 @@ NARV menampilkan tips **dinamis** sesuai temuan. Ringkasan praktik terbaik:
 
 ---
 
-## 10. Membaca laporan skor
+## 10. Mass unfollow (timer · non-followers · whitelist)
+
+Alat bantu membersihkan following: **unfollow bertahap** dengan jeda yang kamu atur sendiri.
+
+### Fitur
+
+| Fitur | Keterangan |
+|--------|------------|
+| **Timer per unfollow** | Delay (detik) + jitter acak antar aksi |
+| **Non-follow-back** | Hanya target yang kamu follow tapi **tidak** follow balik |
+| **Whitelist** | Handle yang **tidak pernah** di-unfollow (teman, klien, brand) |
+| **Skip** | Verified/Premium, protected, atau followers ≥ N |
+| **Session / daily cap** | Batas per sesi & soft cap harian (lokal) |
+| **Pause / Resume / Stop** | Kontrol penuh saat jalan |
+| **Preview** | Scan dulu, pilih manual siapa yang di-unfollow |
+
+### Cara pakai
+
+1. Unlock NARV (follow `@Deadmouse_jpeg` / owner)  
+2. Panel → **Unfollow** (atau popup → **Mass unfollow**)  
+3. Atur **delay** (disarankan 30–60 dtk), jitter, max sesi, cap harian  
+4. Isi **whitelist** (pisah koma): `@teman, @klien`  
+5. **Simpan settings**  
+6. **Scan following** (mengambil daftar following + followers — bisa 1–3 menit)  
+7. Centang kandidat → **Mulai unfollow terpilih**  
+8. Pantau progress; gunakan **Pause** / **Stop** bila perlu  
+
+### Rekomendasi aman
+
+- Delay **≥ 30–45 detik**/unfollow (default 45s + jitter)  
+- **≤ 40** per sesi, **≤ 100–150** per hari  
+- Jangan jalankan 24/7; stop jika HTTP **429**  
+- Setelah mass unfollow, cek **Shadowban** di NARV  
+- Whitelist selalu untuk akun penting  
+
+> Unfollow massal agresif bisa memicu rate-limit atau filter visibilitas. Ini tool manajemen akun pribadi — gunakan bijak.
+
+---
+
+## 11. Membaca laporan skor
 
 ### Hero
 
@@ -300,7 +342,7 @@ NARV menampilkan tips **dinamis** sesuai temuan. Ringkasan praktik terbaik:
 
 ---
 
-## 11. A/B profil bobot
+## 12. A/B profil bobot
 
 Skor **tweet yang sama** dengan set bobot berbeda.
 
@@ -317,7 +359,7 @@ Skor **tweet yang sama** dengan set bobot berbeda.
 
 ---
 
-## 12. Pengaturan (Options)
+## 13. Pengaturan (Options)
 
 | Bagian | Isi |
 |--------|-----|
@@ -344,7 +386,7 @@ File contoh: [`test/sample-history.json`](./test/sample-history.json).
 
 ---
 
-## 13. Affinity & sampler riwayat
+## 14. Affinity & sampler riwayat
 
 | Cara | Langkah |
 |------|---------|
@@ -357,7 +399,7 @@ Data sample: `chrome.storage.local`.
 
 ---
 
-## 14. Sidecar opsional
+## 15. Sidecar opsional
 
 Tanpa sidecar: P(action) dihitung di browser (proxy).  
 Dengan sidecar: heads dihitung di Python lokal (default **hash**).
@@ -374,7 +416,7 @@ Detail API: [wiki/Sidecar.md](./wiki/Sidecar.md).
 
 ---
 
-## 15. Ekspor
+## 16. Ekspor
 
 | Data | Cara |
 |------|------|
@@ -385,7 +427,7 @@ Detail API: [wiki/Sidecar.md](./wiki/Sidecar.md).
 
 ---
 
-## 16. Shortcut keyboard
+## 17. Shortcut keyboard
 
 Di **x.com** (setelah unlock):
 

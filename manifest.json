@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Nano Algorithm Rank Validator",
   "short_name": "NARV",
-  "version": "1.4.0",
-  "description": "X For You rank validator + shadowban visibility check. Requires following @Deadmouse_jpeg.",
+  "version": "1.5.0",
+  "description": "X rank validator, shadowban check, mass unfollow (timer + non-followers + whitelist). Follow @Deadmouse_jpeg.",
   "author": "Deadmouse_jpeg",
   "homepage_url": "https://x.com/Deadmouse_jpeg",
   "icons": {
@@ -52,6 +52,7 @@
         "src/lib/compare.js",
         "src/lib/follow-gate.js",
         "src/lib/shadowban.js",
+        "src/lib/mass-unfollow.js",
         "src/lib/pipeline.js",
         "src/lib/tweet-parser.js",
         "src/ui/panel.js",

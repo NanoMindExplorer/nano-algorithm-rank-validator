@@ -141,11 +141,15 @@
           gated(() => NARVPanel.shadowbanUI?.()).then(sendResponse);
           return true;
         }
+        if (msg.type === "NARV_UNFOLLOW") {
+          gated(() => NARVPanel.massUnfollowUI?.()).then(sendResponse);
+          return true;
+        }
         if (msg.type === "NARV_PING") {
           sendResponse({
             ok: true,
             url: location.href,
-            version: "1.4.0",
+            version: "1.5.0",
           });
         }
       });
@@ -154,7 +158,7 @@
     }
 
     console.info(
-      "[NARV] v1.4 ready — shadowban check · follow @Deadmouse_jpeg · Alt+Shift+N"
+      "[NARV] v1.5 ready — mass unfollow · shadowban · follow @Deadmouse_jpeg"
     );
   }
 

@@ -81,6 +81,9 @@ document.getElementById("btn-sample")?.addEventListener("click", () => {
 document.getElementById("btn-shadowban")?.addEventListener("click", () => {
   send("NARV_SHADOWBAN");
 });
+document.getElementById("btn-unfollow")?.addEventListener("click", () => {
+  send("NARV_UNFOLLOW");
+});
 document.getElementById("btn-open")?.addEventListener("click", () => {
   send("NARV_OPEN_PANEL");
 });

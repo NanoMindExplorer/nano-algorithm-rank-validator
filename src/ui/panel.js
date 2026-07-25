@@ -127,6 +127,7 @@
           <button class="narv-btn narv-btn-ghost" id="narv-draft" type="button">Draft</button>
           <button class="narv-btn narv-btn-ghost" id="narv-sample" type="button">Sample hist</button>
           <button class="narv-btn narv-btn-secondary" id="narv-shadowban" type="button">Shadowban</button>
+          <button class="narv-btn narv-btn-ghost" id="narv-unfollow" type="button">Unfollow</button>
         </div>
         <div class="narv-tabs" id="narv-tabs">
           <button class="narv-tab active" data-tab="report" type="button">Report</button>
@@ -168,6 +169,9 @@
     rootEl
       .querySelector("#narv-shadowban")
       .addEventListener("click", () => withFollowGate(shadowbanUI));
+    rootEl
+      .querySelector("#narv-unfollow")
+      .addEventListener("click", () => withFollowGate(massUnfollowUI));
 
     rootEl.querySelectorAll(".narv-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -612,6 +616,271 @@
         renderReport(lastReport, "report");
       });
     });
+  }
+
+  async function massUnfollowUI() {
+    openPanel();
+    if (!(await refreshFollowGate({ force: false }))) return;
+    if (!root.NARVMassUnfollow) {
+      bodyEl.innerHTML = `<div class="narv-empty">Modul mass-unfollow tidak termuat — reload extension.</div>`;
+      return;
+    }
+
+    const MU = root.NARVMassUnfollow;
+    const settings = await MU.loadSettings();
+    const daily = await MU.loadDailyStats();
+    let analysis = null;
+    let selected = new Map(); // id -> row
+
+    const render = () => {
+      const wl = (settings.whitelist || []).map((h) => "@" + h).join(", ");
+      bodyEl.innerHTML = `
+        <div class="narv-card">
+          <div class="narv-card-h">Mass Unfollow <span>non-followers · timer · whitelist</span></div>
+          <div class="narv-card-b">
+            <p class="narv-muted" style="margin-top:0">
+              Unfollow massal dengan jeda manual per aksi. Deteksi yang <strong>tidak follow-back</strong>,
+              hormati <strong>whitelist</strong>. Delay terlalu cepat berisiko rate-limit / filter akun.
+            </p>
+            <div class="narv-row-2">
+              <div>
+                <label class="narv-label">Delay per unfollow (detik)</label>
+                <input id="mu-delay" class="narv-input" type="number" min="5" max="600" value="${Math.round((settings.delayMs || 45000) / 1000)}" />
+              </div>
+              <div>
+                <label class="narv-label">Jitter acak (detik)</label>
+                <input id="mu-jitter" class="narv-input" type="number" min="0" max="120" value="${Math.round((settings.jitterMs || 0) / 1000)}" />
+              </div>
+            </div>
+            <div class="narv-row-2">
+              <div>
+                <label class="narv-label">Max per sesi</label>
+                <input id="mu-session" class="narv-input" type="number" min="1" max="500" value="${settings.sessionMax || 40}" />
+              </div>
+              <div>
+                <label class="narv-label">Soft cap harian</label>
+                <input id="mu-daily" class="narv-input" type="number" min="1" max="2000" value="${settings.dailyMax || 120}" />
+              </div>
+            </div>
+            <label class="narv-label"><input type="checkbox" id="mu-nonf" ${settings.onlyNonFollowers !== false ? "checked" : ""}/> Hanya yang tidak follow-back</label>
+            <label class="narv-label"><input type="checkbox" id="mu-ver" ${settings.skipVerified !== false ? "checked" : ""}/> Skip verified / Premium blue</label>
+            <label class="narv-label"><input type="checkbox" id="mu-prot" ${settings.skipProtected ? "checked" : ""}/> Skip protected accounts</label>
+            <div>
+              <label class="narv-label">Skip jika followers target ≥ (0 = off)</label>
+              <input id="mu-minf" class="narv-input" type="number" min="0" value="${settings.skipMinFollowers || 0}" />
+            </div>
+            <div>
+              <label class="narv-label">Whitelist (koma, tidak akan di-unfollow)</label>
+              <textarea id="mu-wl" class="narv-input" rows="2" placeholder="@friend, @client, brand">${esc(wl)}</textarea>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <button class="narv-btn narv-btn-secondary" id="mu-save" type="button">Simpan settings</button>
+              <button class="narv-btn narv-btn-primary" id="mu-scan" type="button">Scan following</button>
+            </div>
+            <p class="narv-muted" style="margin-top:8px">
+              Hari ini: <strong>${daily.count || 0}</strong> / ${settings.dailyMax || 120} unfollow
+            </p>
+            <ul class="narv-list tips" style="margin-top:8px">
+              ${(MU.SAFETY_NOTES || []).map((t) => `<li>${esc(t)}</li>`).join("")}
+            </ul>
+          </div>
+        </div>
+        <div id="mu-result"></div>
+      `;
+
+      bodyEl.querySelector("#mu-save")?.addEventListener("click", async () => {
+        const next = readForm();
+        Object.assign(settings, await MU.saveSettings(next));
+        flash("Unfollow settings saved");
+        render();
+      });
+
+      bodyEl.querySelector("#mu-scan")?.addEventListener("click", async () => {
+        const box = bodyEl.querySelector("#mu-result");
+        box.innerHTML = `<div class="narv-empty">Mengambil following + followers (bisa 1–3 menit)…</div>`;
+        try {
+          Object.assign(settings, await MU.saveSettings(readForm()));
+          analysis = await MU.analyzeFollowing(settings);
+          selected = new Map(analysis.candidates.map((c) => [c.id, c]));
+          renderAnalysis(box);
+        } catch (e) {
+          const msg =
+            e.code === "not_logged_in" || e.message === "not_logged_in"
+              ? "Login ke x.com dulu."
+              : e.message || String(e);
+          box.innerHTML = `<div class="narv-empty" style="color:var(--narv-red)">${esc(msg)}</div>`;
+        }
+      });
+    };
+
+    const readForm = () => {
+      const delaySec = Number(bodyEl.querySelector("#mu-delay")?.value || 45);
+      const jitterSec = Number(bodyEl.querySelector("#mu-jitter")?.value || 10);
+      const wlRaw = bodyEl.querySelector("#mu-wl")?.value || "";
+      const whitelist = wlRaw
+        .split(/[\s,]+/)
+        .map((s) => MU.normalizeHandle(s))
+        .filter(Boolean);
+      return {
+        delayMs: Math.round(delaySec * 1000),
+        jitterMs: Math.round(jitterSec * 1000),
+        sessionMax: Number(bodyEl.querySelector("#mu-session")?.value || 40),
+        dailyMax: Number(bodyEl.querySelector("#mu-daily")?.value || 120),
+        onlyNonFollowers: !!bodyEl.querySelector("#mu-nonf")?.checked,
+        skipVerified: !!bodyEl.querySelector("#mu-ver")?.checked,
+        skipProtected: !!bodyEl.querySelector("#mu-prot")?.checked,
+        skipMinFollowers: Number(bodyEl.querySelector("#mu-minf")?.value || 0),
+        whitelist,
+      };
+    };
+
+    const renderAnalysis = (box) => {
+      if (!analysis) return;
+      const list = analysis.candidates || [];
+      box.innerHTML = `
+        <div class="narv-card">
+          <div class="narv-card-h">Hasil scan @${esc(analysis.me.screen_name)}
+            <span>following ${analysis.followingCount} · followers ${analysis.followerCount} · non-FB ${analysis.nonFollowerCount}</span>
+          </div>
+          <div class="narv-card-b">
+            <p class="narv-muted" style="margin-top:0">
+              Kandidat setelah filter: <strong>${list.length}</strong>
+              · di-skip: ${analysis.skipped?.length || 0}
+            </p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+              <button class="narv-btn narv-btn-secondary" id="mu-all" type="button">Select all</button>
+              <button class="narv-btn narv-btn-ghost" id="mu-none" type="button">Select none</button>
+              <button class="narv-btn narv-btn-primary" id="mu-run" type="button">Mulai unfollow terpilih</button>
+              <button class="narv-btn narv-btn-secondary" id="mu-pause" type="button" disabled>Pause</button>
+              <button class="narv-btn narv-btn-ghost" id="mu-stop" type="button" disabled>Stop</button>
+              <button class="narv-btn narv-btn-ghost" id="mu-export" type="button">Export kandidat JSON</button>
+            </div>
+            <div id="mu-progress" class="narv-muted" style="margin-bottom:8px"></div>
+            <div id="mu-log" style="max-height:120px;overflow:auto;font-size:11px;margin-bottom:10px" class="narv-muted"></div>
+            <div id="mu-list" style="max-height:280px;overflow:auto">
+              ${list
+                .map(
+                  (c) => `
+                <label class="narv-filter-item" style="cursor:pointer;align-items:flex-start">
+                  <input type="checkbox" data-mu-id="${esc(c.id)}" ${selected.has(c.id) ? "checked" : ""} style="margin-top:3px"/>
+                  <div style="flex:1">
+                    <div style="font-weight:700">@${esc(c.screen_name)} ${c.verified ? "✓" : ""} ${c.protected ? "🔒" : ""}</div>
+                    <div class="narv-muted">${esc(c.name)} · ${c.followers_count} followers · ${c.followsYou ? "follows you" : "no follow-back"}</div>
+                  </div>
+                </label>`
+                )
+                .join("") || '<div class="narv-muted">Tidak ada kandidat.</div>'}
+            </div>
+          </div>
+        </div>
+      `;
+
+      const syncSelectedFromDom = () => {
+        selected.clear();
+        box.querySelectorAll("[data-mu-id]").forEach((el) => {
+          if (el.checked) {
+            const id = el.getAttribute("data-mu-id");
+            const row = list.find((x) => x.id === id);
+            if (row) selected.set(id, row);
+          }
+        });
+      };
+
+      box.querySelector("#mu-all")?.addEventListener("click", () => {
+        box.querySelectorAll("[data-mu-id]").forEach((el) => (el.checked = true));
+        selected = new Map(list.map((c) => [c.id, c]));
+      });
+      box.querySelector("#mu-none")?.addEventListener("click", () => {
+        box.querySelectorAll("[data-mu-id]").forEach((el) => (el.checked = false));
+        selected.clear();
+      });
+      box.querySelector("#mu-export")?.addEventListener("click", () => {
+        if (root.NARVExport) {
+          root.NARVExport.downloadText(
+            `narv-unfollow-candidates-${Date.now()}.json`,
+            JSON.stringify(analysis, null, 2),
+            "application/json"
+          );
+          flash("Exported");
+        }
+      });
+
+      const prog = box.querySelector("#mu-progress");
+      const logEl = box.querySelector("#mu-log");
+      const btnRun = box.querySelector("#mu-run");
+      const btnPause = box.querySelector("#mu-pause");
+      const btnStop = box.querySelector("#mu-stop");
+
+      btnRun?.addEventListener("click", async () => {
+        syncSelectedFromDom();
+        const queue = [...selected.values()];
+        if (!queue.length) {
+          flash("Pilih minimal 1 akun");
+          return;
+        }
+        Object.assign(settings, await MU.saveSettings(readForm()));
+        btnRun.disabled = true;
+        btnPause.disabled = false;
+        btnStop.disabled = false;
+        let waiting = false;
+        const result = await MU.runUnfollow(queue, {
+          ...settings,
+          onProgress: (st) => {
+            if (st.phase === "waiting") {
+              waiting = true;
+              prog.textContent = `Menunggu ${(st.waitMs / 1000).toFixed(0)}s… (${st.done}/${st.total}) sukses ${st.success} gagal ${st.failed}`;
+            } else if (st.phase === "unfollowing") {
+              prog.textContent = `Unfollow @${st.current?.screen_name || "?"}… (${st.done}/${st.total})`;
+            } else if (st.phase === "finished" || st.phase === "done_one" || st.phase === "error") {
+              prog.textContent = `Progress ${st.done}/${st.total} · OK ${st.success} · fail ${st.failed} · skip ${st.skipped}`;
+            }
+            if (st.log && st.log.length) {
+              const last = st.log.slice(-8).reverse();
+              logEl.innerHTML = last
+                .map(
+                  (l) =>
+                    `<div>[${esc(l.type)}] ${esc(l.handle || "")} ${esc(l.msg || "")}</div>`
+                )
+                .join("");
+            }
+            if (st.phase === "finished") {
+              btnRun.disabled = false;
+              btnPause.disabled = true;
+              btnStop.disabled = true;
+              flash(`Selesai: ${st.success} unfollowed`);
+            }
+            void waiting;
+          },
+        });
+        if (!result.ok) {
+          prog.textContent = result.error || "Gagal";
+          btnRun.disabled = false;
+          btnPause.disabled = true;
+          btnStop.disabled = true;
+        }
+      });
+
+      btnPause?.addEventListener("click", () => {
+        const j = MU.getJob();
+        if (!j || !j.running) return;
+        if (j.paused) {
+          MU.resumeJob();
+          btnPause.textContent = "Pause";
+          flash("Resumed");
+        } else {
+          MU.pauseJob();
+          btnPause.textContent = "Resume";
+          flash("Paused");
+        }
+      });
+
+      btnStop?.addEventListener("click", () => {
+        MU.stopJob();
+        flash("Stopping…");
+      });
+    };
+
+    render();
   }
 
   async function shadowbanUI() {
@@ -1144,6 +1413,7 @@
     sampleHistoryUI,
     scanTimeline,
     shadowbanUI,
+    massUnfollowUI,
     refreshFollowGate,
   };
 
