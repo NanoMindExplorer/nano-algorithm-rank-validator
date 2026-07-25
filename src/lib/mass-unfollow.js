@@ -221,23 +221,51 @@
    */
   async function lookupUsers(ids) {
     const out = [];
+    let attempted = 0;
+    let failed = 0;
+    let lastStatus = null;
+    let lastError = null;
+
     for (let i = 0; i < ids.length; i += 100) {
       const batch = ids.slice(i, i + 100);
       const url =
         `https://x.com/i/api/1.1/users/lookup.json?` +
         `user_id=${encodeURIComponent(batch.join(","))}` +
         `&include_entities=false`;
-      const res = await xGet(url);
-      if (res.status === 429) throw new Error("rate_limited_lookup");
-      if (!res.ok) {
-        // partial failure — continue
-        await sleep(1000);
-        continue;
+      attempted++;
+      try {
+        const res = await xGet(url);
+        if (res.status === 429) throw new Error("rate_limited_lookup");
+        if (!res.ok) {
+          // partial failure — record and continue (other batches may still work)
+          failed++;
+          lastStatus = res.status;
+          await sleep(1000);
+          continue;
+        }
+        const users = await res.json();
+        if (Array.isArray(users)) out.push(...users);
+      } catch (e) {
+        if (e.message === "rate_limited_lookup") throw e;
+        failed++;
+        lastError = e.message || String(e);
       }
-      const users = await res.json();
-      if (Array.isArray(users)) out.push(...users);
       await sleep(300 + Math.random() * 400);
     }
+
+    // If literally every batch failed, don't silently return an empty list —
+    // that previously showed up as "0 candidates found" with no explanation.
+    // Surface it as a real error so it's clear the lookup API is the problem.
+    if (attempted > 0 && failed === attempted) {
+      const err = new Error(
+        `users/lookup.json gagal untuk semua ${attempted} batch ` +
+          `(HTTP ${lastStatus ?? "?"}${lastError ? " — " + lastError : ""}). ` +
+          `Endpoint mungkin berubah/diblokir X — cek tab Network di DevTools.`
+      );
+      err.code = "lookup_failed_all";
+      throw err;
+    }
+
     return out;
   }
 
@@ -322,6 +350,17 @@
     // Sort: fewer followers first (usually safer / less "important")
     candidates.sort((a, b) => a.followers_count - b.followers_count);
 
+    const lookupFailedCount = skipped.filter((s) => s.reason === "lookup_failed").length;
+    const warnings = [];
+    if (lookupFailedCount > 0 && targetIds.length > 0) {
+      const pct = Math.round((lookupFailedCount / targetIds.length) * 100);
+      warnings.push(
+        `${lookupFailedCount} akun (${pct}%) gagal di-lookup (users/lookup.json) dan ` +
+          `tidak muncul di kandidat — kemungkinan rate limit sementara, bukan berarti kamu ` +
+          `sudah follow-back semua orang. Coba scan ulang beberapa menit lagi.`
+      );
+    }
+
     return {
       me: {
         id: String(me.id_str || me.id),
@@ -336,6 +375,7 @@
         .length,
       candidates,
       skipped,
+      warnings,
       analyzedAt: new Date().toISOString(),
     };
   }

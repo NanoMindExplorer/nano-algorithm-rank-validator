@@ -747,6 +747,13 @@
               Kandidat setelah filter: <strong>${list.length}</strong>
               · di-skip: ${analysis.skipped?.length || 0}
             </p>
+            ${
+              analysis.warnings && analysis.warnings.length
+                ? `<div class="narv-empty" style="color:var(--narv-yellow, #ffd400);border-color:var(--narv-yellow, #ffd400);margin-bottom:10px">
+                    ${analysis.warnings.map((w) => `⚠ ${esc(w)}`).join("<br/>")}
+                  </div>`
+                : ""
+            }
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
               <button class="narv-btn narv-btn-secondary" id="mu-all" type="button">Select all</button>
               <button class="narv-btn narv-btn-ghost" id="mu-none" type="button">Select none</button>
