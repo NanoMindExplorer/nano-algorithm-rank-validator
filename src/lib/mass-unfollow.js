@@ -275,48 +275,65 @@
   }
 
   /**
-   * Lookup users in batches of 100
+   * Lookup users one at a time via users/show.json.
+   *
+   * NOTE: users/lookup.json (bulk, up to 100 ids/request) now returns 404 on
+   * X's current backend — confirmed dead. users/show.json (single id/request)
+   * is the same endpoint already used successfully by getMe() and by
+   * shadowban.js's fetchUserShow, so we fall back to calling it once per
+   * candidate instead. Slower (one request per user instead of one per 100),
+   * but it actually works with the current API.
    */
-  async function lookupUsers(ids) {
+  async function lookupUsers(ids, onProgress) {
     const out = [];
     let attempted = 0;
     let failed = 0;
     let lastStatus = null;
     let lastError = null;
 
-    for (let i = 0; i < ids.length; i += 100) {
-      const batch = ids.slice(i, i + 100);
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
       const url =
-        `https://x.com/i/api/1.1/users/lookup.json?` +
-        `user_id=${encodeURIComponent(batch.join(","))}` +
-        `&include_entities=false`;
+        `https://x.com/i/api/1.1/users/show.json?` +
+        `user_id=${encodeURIComponent(id)}&include_entities=false`;
       attempted++;
       try {
         const res = await xGet(url);
         if (res.status === 429) throw new Error("rate_limited_lookup");
-        if (!res.ok) {
-          // partial failure — record and continue (other batches may still work)
+        if (res.ok) {
+          const u = await res.json();
+          if (u && (u.id_str || u.id)) out.push(u);
+        } else if (res.status !== 404) {
+          // 404 here usually just means that specific account was deleted /
+          // suspended since the id list was fetched — a real, expected
+          // outcome, not an API failure, so it doesn't count against "failed".
           failed++;
           lastStatus = res.status;
-          await sleep(1000);
-          continue;
         }
-        const users = await res.json();
-        if (Array.isArray(users)) out.push(...users);
       } catch (e) {
         if (e.message === "rate_limited_lookup") throw e;
         failed++;
         lastError = e.message || String(e);
       }
-      await sleep(300 + Math.random() * 400);
+
+      if (typeof onProgress === "function") {
+        try {
+          onProgress(i + 1, ids.length);
+        } catch {
+          /* ignore UI callback errors */
+        }
+      }
+
+      // Light pacing — one request at a time, not batched, so keep it gentle.
+      await sleep(120 + Math.random() * 130);
     }
 
-    // If literally every batch failed, don't silently return an empty list —
-    // that previously showed up as "0 candidates found" with no explanation.
-    // Surface it as a real error so it's clear the lookup API is the problem.
-    if (attempted > 0 && failed === attempted) {
+    // If literally every lookup failed (and none succeeded), don't silently
+    // return an empty list — that previously showed up as "0 candidates
+    // found" with no explanation. Surface it as a real error instead.
+    if (attempted > 0 && out.length === 0 && failed === attempted) {
       const err = new Error(
-        `users/lookup.json gagal untuk semua ${attempted} batch ` +
+        `users/show.json gagal untuk semua ${attempted} akun ` +
           `(HTTP ${lastStatus ?? "?"}${lastError ? " — " + lastError : ""}). ` +
           `Endpoint mungkin berubah/diblokir X — cek tab Network di DevTools.`
       );
@@ -363,7 +380,7 @@
     }
 
     // Lookup for handles + skip rules
-    const users = await lookupUsers(targetIds);
+    const users = await lookupUsers(targetIds, settings.onProgress);
     const byId = new Map(users.map((u) => [String(u.id_str || u.id), u]));
 
     const candidates = [];

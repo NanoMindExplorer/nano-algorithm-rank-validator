@@ -700,7 +700,12 @@
         box.innerHTML = `<div class="narv-empty">Mengambil following + followers (bisa 1–3 menit)…</div>`;
         try {
           Object.assign(settings, await MU.saveSettings(readForm()));
-          analysis = await MU.analyzeFollowing(settings);
+          analysis = await MU.analyzeFollowing({
+            ...settings,
+            onProgress: (done, total) => {
+              box.innerHTML = `<div class="narv-empty">Cek profil akun… ${done}/${total}</div>`;
+            },
+          });
           selected = new Map(analysis.candidates.map((c) => [c.id, c]));
           renderAnalysis(box);
         } catch (e) {
