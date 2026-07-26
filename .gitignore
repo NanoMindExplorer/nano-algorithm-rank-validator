@@ -6,3 +6,4 @@ dist/
 *.sha256
 .idea/
 .vscode/
+*.patch
