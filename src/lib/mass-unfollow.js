@@ -174,12 +174,70 @@
     return res;
   }
 
+  /**
+   * Detect logged-in screen name from X page globals / DOM.
+   * (Same fallback pattern as follow-gate.js's detectLoggedInHandle.)
+   */
+  function detectLoggedInHandle() {
+    try {
+      const initial = window.__INITIAL_STATE__ || window.__NEXT_DATA__ || null;
+      if (initial?.session?.user?.screen_name) {
+        return String(initial.session.user.screen_name).replace(/^@/, "");
+      }
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const selectors = [
+        '[data-testid="SideNav_AccountSwitcher_Button"] [dir="ltr"]',
+        'a[data-testid="AppTabBar_Profile_Link"]',
+      ];
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const href =
+          el.getAttribute?.("href") || el.closest?.("a")?.getAttribute?.("href");
+        if (href && /^\/[A-Za-z0-9_]+\/?$/.test(href.split("?")[0])) {
+          return href.replace(/\//g, "");
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return null;
+  }
+
   async function getMe() {
-    const res = await xGet(
-      "https://x.com/i/api/1.1/account/verify_credentials.json?skip_status=true"
-    );
-    if (!res.ok) throw new Error(`verify_credentials HTTP ${res.status}`);
-    return res.json();
+    // account/verify_credentials.json (legacy v1.1 REST) now returns 404 on
+    // X's current backend. Use the same page-state detection that already
+    // works reliably in follow-gate.js instead of a dead API call.
+    const screenName = detectLoggedInHandle();
+    if (!screenName) {
+      const e = new Error(
+        "Tidak bisa deteksi akun yang login — buka x.com/home dan pastikan sudah login, lalu coba lagi."
+      );
+      e.code = "not_logged_in";
+      throw e;
+    }
+
+    // id_str is only used for display in the report — best-effort lookup,
+    // don't fail the whole scan if this secondary call errors.
+    let id = null;
+    try {
+      const res = await xGet(
+        `https://x.com/i/api/1.1/users/show.json?screen_name=${encodeURIComponent(screenName)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        id = data.id_str || data.id || null;
+      }
+    } catch {
+      /* non-fatal */
+    }
+
+    return { screen_name: screenName, id_str: id };
   }
 
   /**
@@ -363,7 +421,7 @@
 
     return {
       me: {
-        id: String(me.id_str || me.id),
+        id: String(me.id_str || me.id || ""),
         screen_name: me.screen_name,
         following: followingIds.length,
         followers: followerIds.length,
